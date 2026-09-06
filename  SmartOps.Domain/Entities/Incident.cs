@@ -26,6 +26,10 @@ public class Incident : AuditableEntity
     public DateTime? ResolvedAt { get; private set; }
     
     public DateTime? ClosedAt { get; private set; }
+    
+    public string? ResolutionNotes { get; private set; }
+
+    public string? RootCause { get; private set; }
 
     private Incident()
     {
@@ -59,5 +63,69 @@ public class Incident : AuditableEntity
         CreatedByUserId = createdByUserId;
 
         Status = IncidentStatus.New;
+    }
+    public void Assign(Guid teamId, Guid? userId = null)
+    {
+        if (Status != IncidentStatus.New)
+            throw new InvalidOperationException(
+                "Only a new incident can be assigned.");
+
+        if (teamId == Guid.Empty)
+            throw new ArgumentException(
+                "Team is required.",
+                nameof(teamId));
+
+        AssignedTeamId = teamId;
+        AssignedUserId = userId;
+        Status = IncidentStatus.Assigned;
+    }
+    public void StartProgress()
+    {
+        if (Status != IncidentStatus.Assigned)
+            throw new InvalidOperationException(
+                "Only an assigned incident can be moved to in progress.");
+
+        Status = IncidentStatus.InProgress;
+    }
+    public void Resolve(string resolutionNotes, string rootCause)
+    {
+        if (Status != IncidentStatus.InProgress)
+            throw new InvalidOperationException(
+                "Only an incident in progress can be resolved.");
+
+        if (string.IsNullOrWhiteSpace(resolutionNotes))
+            throw new ArgumentException(
+                "Resolution notes are required.",
+                nameof(resolutionNotes));
+
+        if (string.IsNullOrWhiteSpace(rootCause))
+            throw new ArgumentException(
+                "Root cause is required.",
+                nameof(rootCause));
+
+        ResolutionNotes = resolutionNotes;
+        RootCause = rootCause;
+        Status = IncidentStatus.Resolved;
+        ResolvedAt = DateTime.UtcNow;
+    }
+    public void Close()
+    {
+        if (Status != IncidentStatus.Resolved)
+            throw new InvalidOperationException(
+                "Only a resolved incident can be closed.");
+
+        Status = IncidentStatus.Closed;
+        ClosedAt = DateTime.UtcNow;
+    }
+    public void Cancel()
+    {
+        if (Status == IncidentStatus.Resolved ||
+            Status == IncidentStatus.Closed)
+        {
+            throw new InvalidOperationException(
+                "A resolved or closed incident cannot be cancelled.");
+        }
+
+        Status = IncidentStatus.Cancelled;
     }
 }
