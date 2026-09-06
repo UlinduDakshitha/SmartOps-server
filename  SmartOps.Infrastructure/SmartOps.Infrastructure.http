@@ -1,0 +1,6 @@
+@SmartOps.Infrastructure_HostAddress = http://localhost:5237
+
+GET {{SmartOps.Infrastructure_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

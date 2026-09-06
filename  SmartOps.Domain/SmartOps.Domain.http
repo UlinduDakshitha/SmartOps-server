@@ -1,0 +1,6 @@
+@SmartOps.Domain_HostAddress = http://localhost:5254
+
+GET {{SmartOps.Domain_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
