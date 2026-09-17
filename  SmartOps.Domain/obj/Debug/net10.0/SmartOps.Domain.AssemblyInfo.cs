@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SmartOps.Domain")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+264732f489e987d066cb8776869e92fb5440077b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+91cdebeca06a354fb6e7196bdd0d323afe8cc444")]
 [assembly: System.Reflection.AssemblyProductAttribute("SmartOps.Domain")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SmartOps.Domain")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
