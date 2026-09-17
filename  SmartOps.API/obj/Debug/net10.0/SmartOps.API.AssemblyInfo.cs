@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SmartOps.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+74b7a5818ab7ddb06c58016b1b95f38a9351a364")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+264732f489e987d066cb8776869e92fb5440077b")]
 [assembly: System.Reflection.AssemblyProductAttribute("SmartOps.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SmartOps.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

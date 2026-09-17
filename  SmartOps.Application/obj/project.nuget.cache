@@ -1,9 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "ema+b81fL9A=",
+  "dgSpecHash": "TxnCYCR5oME=",
   "success": true,
   "projectFilePath": "D:\\Desktop\\smart\\SmartOps\\ SmartOps.Application\\SmartOps.Application.csproj",
   "expectedPackageFiles": [
+    "C:\\Users\\ASUS-PC\\.nuget\\packages\\fluentvalidation\\12.1.1\\fluentvalidation.12.1.1.nupkg.sha512",
     "C:\\Users\\ASUS-PC\\.nuget\\packages\\microsoft.aspnetcore.openapi\\10.0.10\\microsoft.aspnetcore.openapi.10.0.10.nupkg.sha512",
     "C:\\Users\\ASUS-PC\\.nuget\\packages\\microsoft.openapi\\2.0.0\\microsoft.openapi.2.0.0.nupkg.sha512"
   ],
