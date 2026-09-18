@@ -10,17 +10,20 @@ public class AuthService : IAuthService
 {
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IUserRoleRepository _userRoleRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
 
     public AuthService(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
+        IUserRoleRepository userRoleRepository,
         IPasswordHasher passwordHasher,
         IJwtTokenService jwtTokenService)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
+        _userRoleRepository = userRoleRepository;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
     }
@@ -45,7 +48,20 @@ public class AuthService : IAuthService
             passwordHash);
 
         await _userRepository.AddAsync(user);
+        var defaultRole = await _roleRepository
+            .GetByNameAsync("Support Agent");
 
+        if (defaultRole is null)
+        {
+            throw new InvalidOperationException(
+                "Default role was not found.");
+        }
+
+        var userRole = new UserRole(
+            user.Id,
+            defaultRole.Id);
+
+        await _userRoleRepository.AddAsync(userRole);
         return new RegisterResponse
         {
             UserId = user.Id,
@@ -79,12 +95,12 @@ public class AuthService : IAuthService
                 "Invalid email or password.");
         }
 
-        var role = await _roleRepository
-            .GetByNameAsync("Support Agent");
+        var userRoles = await _userRoleRepository
+            .GetRolesByUserIdAsync(user.Id);
 
-        var roles = role is null
-            ? new List<string>()
-            : new List<string> { role.Name };
+        var roles = userRoles
+            .Select(x => x.Name)
+            .ToList();
 
         var accessToken = _jwtTokenService
             .GenerateAccessToken(
