@@ -11,6 +11,7 @@ public class AuthService : IAuthService
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IUserRoleRepository _userRoleRepository;
+    private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
 
@@ -18,12 +19,14 @@ public class AuthService : IAuthService
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IUserRoleRepository userRoleRepository,
+        IRefreshTokenRepository refreshTokenRepository,
         IPasswordHasher passwordHasher,
         IJwtTokenService jwtTokenService)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _userRoleRepository = userRoleRepository;
+        _refreshTokenRepository = refreshTokenRepository;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
     }
@@ -48,6 +51,7 @@ public class AuthService : IAuthService
             passwordHash);
 
         await _userRepository.AddAsync(user);
+
         var defaultRole = await _roleRepository
             .GetByNameAsync("Support Agent");
 
@@ -62,6 +66,7 @@ public class AuthService : IAuthService
             defaultRole.Id);
 
         await _userRoleRepository.AddAsync(userRole);
+
         return new RegisterResponse
         {
             UserId = user.Id,
@@ -76,7 +81,8 @@ public class AuthService : IAuthService
     {
         var email = request.Email.Trim().ToLowerInvariant();
 
-        var user = await _userRepository.GetByEmailAsync(email);
+        var user = await _userRepository
+            .GetByEmailAsync(email);
 
         if (user is null || !user.IsActive)
         {
@@ -111,6 +117,14 @@ public class AuthService : IAuthService
         var refreshToken = _jwtTokenService
             .GenerateRefreshToken();
 
+        var refreshTokenEntity = new RefreshToken(
+            user.Id,
+            refreshToken,
+            DateTime.UtcNow.AddDays(7));
+
+        await _refreshTokenRepository
+            .AddAsync(refreshTokenEntity);
+
         return new LoginResponse
         {
             AccessToken = accessToken,
@@ -118,5 +132,85 @@ public class AuthService : IAuthService
             AccessTokenExpiresAt =
                 _jwtTokenService.GetAccessTokenExpiration()
         };
+    }
+
+    public async Task<LoginResponse> RefreshTokenAsync(
+        string refreshToken)
+    {
+        var storedToken = await _refreshTokenRepository
+            .GetByTokenAsync(refreshToken);
+
+        if (storedToken is null || !storedToken.IsActive)
+        {
+            throw new UnauthorizedAccessException(
+                "Invalid or expired refresh token.");
+        }
+
+        var user = await _userRepository
+            .GetByIdAsync(storedToken.UserId);
+
+        if (user is null || !user.IsActive)
+        {
+            throw new UnauthorizedAccessException(
+                "User is not available.");
+        }
+
+        storedToken.Revoke();
+
+        await _refreshTokenRepository
+            .UpdateAsync(storedToken);
+
+        var userRoles = await _userRoleRepository
+            .GetRolesByUserIdAsync(user.Id);
+
+        var roles = userRoles
+            .Select(x => x.Name)
+            .ToList();
+
+        var newAccessToken = _jwtTokenService
+            .GenerateAccessToken(
+                user.Id,
+                user.Email,
+                roles);
+
+        var newRefreshToken = _jwtTokenService
+            .GenerateRefreshToken();
+
+        var newRefreshTokenEntity = new RefreshToken(
+            user.Id,
+            newRefreshToken,
+            DateTime.UtcNow.AddDays(7));
+
+        await _refreshTokenRepository
+            .AddAsync(newRefreshTokenEntity);
+
+        return new LoginResponse
+        {
+            AccessToken = newAccessToken,
+            RefreshToken = newRefreshToken,
+            AccessTokenExpiresAt =
+                _jwtTokenService.GetAccessTokenExpiration()
+        };
+    }
+
+    public async Task RevokeRefreshTokenAsync(
+        string refreshToken)
+    {
+        var storedToken = await _refreshTokenRepository
+            .GetByTokenAsync(refreshToken);
+
+        if (storedToken is null)
+        {
+            throw new InvalidOperationException(
+                "Refresh token was not found.");
+        }
+
+        if (!storedToken.IsRevoked)
+        {
+            storedToken.Revoke();
+
+            await _refreshTokenRepository
+                .UpdateAsync(storedToken);
+        }
     }
 }

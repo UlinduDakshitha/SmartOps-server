@@ -58,4 +58,28 @@ public class AuthController : ControllerBase
             Roles = roles
         });
     }
+    [HttpPost("refresh")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Refresh(
+        [FromBody] string refreshToken)
+    {
+        var result = await _authService
+            .RefreshTokenAsync(refreshToken);
+
+        return Ok(result);
+    }
+
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<IActionResult> Logout(
+        [FromBody] string refreshToken)
+    {
+        await _authService
+            .RevokeRefreshTokenAsync(refreshToken);
+
+        return Ok(new
+        {
+            Message = "Logged out successfully."
+        });
+    }
 }
