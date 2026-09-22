@@ -7,7 +7,7 @@ namespace SmartOps.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = "AdminOnly")]
 public class AuditLogController : ControllerBase
 {
     private readonly IAuditLogService _auditLogService;

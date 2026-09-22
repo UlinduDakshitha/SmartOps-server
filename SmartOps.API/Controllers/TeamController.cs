@@ -7,7 +7,7 @@ namespace SmartOps.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = "TeamLeadOrAdmin")]
 public class TeamController : ControllerBase
 {
     private readonly ITeamService _teamService;

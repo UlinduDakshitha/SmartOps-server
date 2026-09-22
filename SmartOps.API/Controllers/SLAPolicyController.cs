@@ -7,7 +7,7 @@ namespace SmartOps.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = "AdminOnly")]
 public class SLAPolicyController : ControllerBase
 {
     private readonly ISLAPolicyService _slaPolicyService;

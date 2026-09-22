@@ -8,7 +8,7 @@ namespace SmartOps.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Policy = "IncidentHandler")]
 public class IncidentController : ControllerBase
 {
     private readonly IIncidentService _incidentService;
