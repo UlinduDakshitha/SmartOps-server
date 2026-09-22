@@ -14,13 +14,16 @@ public class IncidentService : IIncidentService
     private readonly IIncidentCommentRepository _incidentCommentRepository;
     private readonly IIncidentAssignmentRepository _incidentAssignmentRepository;
     private readonly IIncidentHistoryRepository _incidentHistoryRepository;
+    private readonly ISLAPolicyRepository _slaPolicyRepository;
+    
     public IncidentService(
         IIncidentRepository incidentRepository,
         IUserRepository userRepository,
         ITeamRepository teamRepository,
         IIncidentCommentRepository incidentCommentRepository,
         IIncidentAssignmentRepository incidentAssignmentRepository,
-            IIncidentHistoryRepository incidentHistoryRepository)
+            IIncidentHistoryRepository incidentHistoryRepository,
+            ISLAPolicyRepository slaPolicyRepository)
     {
         _incidentRepository = incidentRepository;
         _userRepository = userRepository;
@@ -28,6 +31,7 @@ public class IncidentService : IIncidentService
         _incidentCommentRepository = incidentCommentRepository;
         _incidentAssignmentRepository = incidentAssignmentRepository;
         _incidentHistoryRepository = incidentHistoryRepository;
+        _slaPolicyRepository = slaPolicyRepository;
     }
 
     public async Task<IncidentResponse> GetByIdAsync(Guid id)
@@ -71,6 +75,25 @@ public class IncidentService : IIncidentService
             request.Priority,
             request.Severity,
             createdByUserId);
+        
+        var slaPolicy = await _slaPolicyRepository
+            .GetByPriorityAsync(request.Priority);
+
+        if (slaPolicy is null)
+        {
+            throw new InvalidOperationException(
+                $"No SLA policy is configured for priority '{request.Priority}'.");
+        }
+
+        var responseDueAt = incident.CreatedAt
+            .AddMinutes(slaPolicy.ResponseTimeMinutes);
+
+        var resolutionDueAt = incident.CreatedAt
+            .AddMinutes(slaPolicy.ResolutionTimeMinutes);
+
+        incident.SetSLA(
+            responseDueAt,
+            resolutionDueAt);
 
         await _incidentRepository.AddAsync(incident);
 
@@ -379,6 +402,9 @@ public class IncidentService : IIncidentService
             CreatedByUserId = incident.CreatedByUserId,
             AssignedTeamId = incident.AssignedTeamId,
             AssignedUserId = incident.AssignedUserId,
+            ResponseDueAt = incident.ResponseDueAt,
+            ResolutionDueAt = incident.ResolutionDueAt,
+            RespondedAt = incident.RespondedAt,
             ResolvedAt = incident.ResolvedAt,
             ClosedAt = incident.ClosedAt,
             ResolutionNotes = incident.ResolutionNotes,
