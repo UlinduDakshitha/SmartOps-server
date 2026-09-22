@@ -12,17 +12,22 @@ public class IncidentService : IIncidentService
     private readonly IUserRepository _userRepository;
     private readonly ITeamRepository _teamRepository;
     private readonly IIncidentCommentRepository _incidentCommentRepository;
-
+    private readonly IIncidentAssignmentRepository _incidentAssignmentRepository;
+    private readonly IIncidentHistoryRepository _incidentHistoryRepository;
     public IncidentService(
         IIncidentRepository incidentRepository,
         IUserRepository userRepository,
         ITeamRepository teamRepository,
-        IIncidentCommentRepository incidentCommentRepository)
+        IIncidentCommentRepository incidentCommentRepository,
+        IIncidentAssignmentRepository incidentAssignmentRepository,
+            IIncidentHistoryRepository incidentHistoryRepository)
     {
         _incidentRepository = incidentRepository;
         _userRepository = userRepository;
         _teamRepository = teamRepository;
         _incidentCommentRepository = incidentCommentRepository;
+        _incidentAssignmentRepository = incidentAssignmentRepository;
+        _incidentHistoryRepository = incidentHistoryRepository;
     }
 
     public async Task<IncidentResponse> GetByIdAsync(Guid id)
@@ -69,6 +74,15 @@ public class IncidentService : IIncidentService
 
         await _incidentRepository.AddAsync(incident);
 
+        var history = new IncidentHistory(
+            incident.Id,
+            createdByUserId,
+            "Incident Created",
+            null,
+            IncidentStatus.New.ToString());
+
+        await _incidentHistoryRepository.AddAsync(history);
+
         return MapToResponse(incident);
     }
 
@@ -88,6 +102,11 @@ public class IncidentService : IIncidentService
                 "A closed or cancelled incident cannot be updated.");
         }
 
+        var oldValue =
+            $"Title: {incident.Title}, " +
+            $"Priority: {incident.Priority}, " +
+            $"Severity: {incident.Severity}";
+
         incident.Update(
             request.Title.Trim(),
             request.Description.Trim(),
@@ -95,6 +114,20 @@ public class IncidentService : IIncidentService
             request.Severity);
 
         await _incidentRepository.UpdateAsync(incident);
+
+        var newValue =
+            $"Title: {incident.Title}, " +
+            $"Priority: {incident.Priority}, " +
+            $"Severity: {incident.Severity}";
+
+        var history = new IncidentHistory(
+            incident.Id,
+            incident.CreatedByUserId,
+            "Incident Updated",
+            oldValue,
+            newValue);
+
+        await _incidentHistoryRepository.AddAsync(history);
 
         return MapToResponse(incident);
     }
@@ -140,11 +173,50 @@ public class IncidentService : IIncidentService
                     "Cannot assign an incident to an inactive user.");
         }
 
+        var activeAssignment =
+            await _incidentAssignmentRepository
+                .GetActiveByIncidentIdAsync(id);
+
+        if (activeAssignment is not null)
+        {
+            activeAssignment.Unassign();
+
+            await _incidentAssignmentRepository
+                .UpdateAsync(activeAssignment);
+        }
+
+        var oldValue =
+            $"TeamId: {incident.AssignedTeamId}, " +
+            $"UserId: {incident.AssignedUserId}, " +
+            $"Status: {incident.Status}";
+
         incident.Assign(
             request.TeamId,
             request.UserId);
 
         await _incidentRepository.UpdateAsync(incident);
+
+        var assignment = new IncidentAssignment(
+            id,
+            request.TeamId,
+            request.UserId,
+            assignedByUserId);
+
+        await _incidentAssignmentRepository.AddAsync(assignment);
+
+        var newValue =
+            $"TeamId: {incident.AssignedTeamId}, " +
+            $"UserId: {incident.AssignedUserId}, " +
+            $"Status: {incident.Status}";
+
+        var history = new IncidentHistory(
+            incident.Id,
+            assignedByUserId,
+            "Incident Assigned",
+            oldValue,
+            newValue);
+
+        await _incidentHistoryRepository.AddAsync(history);   
     }
 
     public async Task StartProgressAsync(Guid id)
@@ -154,9 +226,22 @@ public class IncidentService : IIncidentService
         if (incident is null)
             throw new KeyNotFoundException("Incident not found.");
 
+        var oldValue = incident.Status.ToString();
+
         incident.StartProgress();
 
         await _incidentRepository.UpdateAsync(incident);
+
+        var newValue = incident.Status.ToString();
+
+        var history = new IncidentHistory(
+            incident.Id,
+            incident.AssignedUserId ?? incident.CreatedByUserId,
+            "Incident Started",
+            oldValue,
+            newValue);
+
+        await _incidentHistoryRepository.AddAsync(history);
     }
 
     public async Task ResolveAsync(
@@ -168,11 +253,24 @@ public class IncidentService : IIncidentService
         if (incident is null)
             throw new KeyNotFoundException("Incident not found.");
 
+        var oldValue = incident.Status.ToString();
+
         incident.Resolve(
             request.ResolutionNotes.Trim(),
             request.RootCause.Trim());
 
         await _incidentRepository.UpdateAsync(incident);
+
+        var newValue = incident.Status.ToString();
+
+        var history = new IncidentHistory(
+            incident.Id,
+            incident.AssignedUserId ?? incident.CreatedByUserId,
+            "Incident Resolved",
+            oldValue,
+            newValue);
+
+        await _incidentHistoryRepository.AddAsync(history);
     }
 
     public async Task CloseAsync(Guid id)
@@ -182,9 +280,22 @@ public class IncidentService : IIncidentService
         if (incident is null)
             throw new KeyNotFoundException("Incident not found.");
 
+        var oldValue = incident.Status.ToString();
+
         incident.Close();
 
         await _incidentRepository.UpdateAsync(incident);
+
+        var newValue = incident.Status.ToString();
+
+        var history = new IncidentHistory(
+            incident.Id,
+            incident.AssignedUserId ?? incident.CreatedByUserId,
+            "Incident Closed",
+            oldValue,
+            newValue);
+
+        await _incidentHistoryRepository.AddAsync(history);
     }
 
     public async Task CancelAsync(Guid id)
@@ -194,9 +305,22 @@ public class IncidentService : IIncidentService
         if (incident is null)
             throw new KeyNotFoundException("Incident not found.");
 
+        var oldValue = incident.Status.ToString();
+
         incident.Cancel();
 
         await _incidentRepository.UpdateAsync(incident);
+
+        var newValue = incident.Status.ToString();
+
+        var history = new IncidentHistory(
+            incident.Id,
+            incident.AssignedUserId ?? incident.CreatedByUserId,
+            "Incident Cancelled",
+            oldValue,
+            newValue);
+
+        await _incidentHistoryRepository.AddAsync(history);
     }
 
     public async Task<IncidentCommentResponse> AddCommentAsync(
