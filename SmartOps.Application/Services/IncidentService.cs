@@ -15,6 +15,7 @@ public class IncidentService : IIncidentService
     private readonly IIncidentAssignmentRepository _incidentAssignmentRepository;
     private readonly IIncidentHistoryRepository _incidentHistoryRepository;
     private readonly ISLAPolicyRepository _slaPolicyRepository;
+    private readonly INotificationService _notificationService;
     
     public IncidentService(
         IIncidentRepository incidentRepository,
@@ -23,7 +24,8 @@ public class IncidentService : IIncidentService
         IIncidentCommentRepository incidentCommentRepository,
         IIncidentAssignmentRepository incidentAssignmentRepository,
             IIncidentHistoryRepository incidentHistoryRepository,
-            ISLAPolicyRepository slaPolicyRepository)
+            ISLAPolicyRepository slaPolicyRepository,
+        INotificationService notificationService)
     {
         _incidentRepository = incidentRepository;
         _userRepository = userRepository;
@@ -32,6 +34,7 @@ public class IncidentService : IIncidentService
         _incidentAssignmentRepository = incidentAssignmentRepository;
         _incidentHistoryRepository = incidentHistoryRepository;
         _slaPolicyRepository = slaPolicyRepository;
+        _notificationService = notificationService;
     }
 
     public async Task<IncidentResponse> GetByIdAsync(Guid id)
@@ -105,7 +108,6 @@ public class IncidentService : IIncidentService
             IncidentStatus.New.ToString());
 
         await _incidentHistoryRepository.AddAsync(history);
-
         return MapToResponse(incident);
     }
 
@@ -239,7 +241,16 @@ public class IncidentService : IIncidentService
             oldValue,
             newValue);
 
-        await _incidentHistoryRepository.AddAsync(history);   
+        await _incidentHistoryRepository.AddAsync(history); 
+        
+        if (request.UserId.HasValue)
+        {
+            await _notificationService.CreateAsync(
+                request.UserId.Value,
+                "Incident Assigned",
+                $"Incident {incident.IncidentNumber} has been assigned to you.",
+                "IncidentAssignment");
+        }
     }
 
     public async Task StartProgressAsync(Guid id)
@@ -294,6 +305,15 @@ public class IncidentService : IIncidentService
             newValue);
 
         await _incidentHistoryRepository.AddAsync(history);
+        
+        if (incident.AssignedUserId.HasValue)
+        {
+            await _notificationService.CreateAsync(
+                incident.AssignedUserId.Value,
+                "Incident Resolved",
+                $"Incident {incident.IncidentNumber} has been resolved.",
+                "IncidentResolution");
+        }
     }
 
     public async Task CloseAsync(Guid id)
@@ -319,6 +339,15 @@ public class IncidentService : IIncidentService
             newValue);
 
         await _incidentHistoryRepository.AddAsync(history);
+        
+        if (incident.AssignedUserId.HasValue)
+        {
+            await _notificationService.CreateAsync(
+                incident.AssignedUserId.Value,
+                "Incident Closed",
+                $"Incident {incident.IncidentNumber} has been closed.",
+                "IncidentClosure");
+        }
     }
 
     public async Task CancelAsync(Guid id)
@@ -344,6 +373,15 @@ public class IncidentService : IIncidentService
             newValue);
 
         await _incidentHistoryRepository.AddAsync(history);
+        
+        if (incident.AssignedUserId.HasValue)
+        {
+            await _notificationService.CreateAsync(
+                incident.AssignedUserId.Value,
+                "Incident Cancelled",
+                $"Incident {incident.IncidentNumber} has been cancelled.",
+                "IncidentCancellation");
+        }
     }
 
     public async Task<IncidentCommentResponse> AddCommentAsync(
@@ -405,6 +443,8 @@ public class IncidentService : IIncidentService
             ResponseDueAt = incident.ResponseDueAt,
             ResolutionDueAt = incident.ResolutionDueAt,
             RespondedAt = incident.RespondedAt,
+            ResponseSlaBreached = incident.IsResponseSlaBreached(),
+            ResolutionSlaBreached = incident.IsResolutionSlaBreached(),
             ResolvedAt = incident.ResolvedAt,
             ClosedAt = incident.ClosedAt,
             ResolutionNotes = incident.ResolutionNotes,

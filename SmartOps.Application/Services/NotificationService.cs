@@ -14,7 +14,22 @@ public class NotificationService : INotificationService
     {
         _notificationRepository = notificationRepository;
     }
+    public async Task<NotificationResponse> CreateAsync(
+        Guid userId,
+        string title,
+        string message,
+        string type)
+    {
+        var notification = new Notification(
+            userId,
+            title.Trim(),
+            message.Trim(),
+            type.Trim());
 
+        await _notificationRepository.AddAsync(notification);
+
+        return MapToResponse(notification);
+    }
     public async Task<List<NotificationResponse>> GetByUserIdAsync(
         Guid userId)
     {
