@@ -30,4 +30,11 @@ public class DashboardController : ControllerBase
         var trend = await _dashboardService.GetMonthlyIncidentTrendAsync();
         return Ok(trend);
     }
+    
+    [HttpGet("team-workload")]
+    public async Task<IActionResult> GetTeamWorkload()
+    {
+        var workload = await _dashboardService.GetTeamWorkloadAsync();
+        return Ok(workload);
+    }
 }

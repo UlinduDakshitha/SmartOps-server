@@ -7,4 +7,6 @@ public interface IDashboardService
     Task<DashboardResponse> GetSummaryAsync();
 
     Task<List<MonthlyIncidentTrendResponse>> GetMonthlyIncidentTrendAsync();
+
+    Task<List<TeamWorkloadResponse>> GetTeamWorkloadAsync();
 }

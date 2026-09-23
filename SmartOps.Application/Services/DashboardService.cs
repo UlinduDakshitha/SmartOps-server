@@ -8,11 +8,14 @@ namespace SmartOps.Application.Services;
 public class DashboardService : IDashboardService
 {
     private readonly IIncidentRepository _incidentRepository;
+    private readonly ITeamRepository _teamRepository;
 
     public DashboardService(
-        IIncidentRepository incidentRepository)
+        IIncidentRepository incidentRepository,
+        ITeamRepository teamRepository)
     {
         _incidentRepository = incidentRepository;
+        _teamRepository = teamRepository;
     }
 
     public async Task<DashboardResponse> GetSummaryAsync()
@@ -105,5 +108,46 @@ public class DashboardService : IDashboardService
                     i.ClosedAt.Value.Month == x.Key.Month)
             })
             .ToList();
+    }
+    public async Task<List<TeamWorkloadResponse>> GetTeamWorkloadAsync()
+    {
+        var incidents = await _incidentRepository.GetAllAsync();
+
+        var teamGroups = incidents
+            .Where(x => x.AssignedTeamId.HasValue)
+            .GroupBy(x => x.AssignedTeamId!.Value)
+            .ToList();
+
+        var result = new List<TeamWorkloadResponse>();
+
+        foreach (var group in teamGroups)
+        {
+            var team = await _teamRepository.GetByIdAsync(group.Key);
+
+            result.Add(new TeamWorkloadResponse
+            {
+                TeamId = group.Key,
+                TeamName = team?.Name ?? "Unknown Team",
+
+                TotalIncidents = group.Count(),
+
+                NewIncidents = group.Count(x =>
+                    x.Status == IncidentStatus.New),
+
+                AssignedIncidents = group.Count(x =>
+                    x.Status == IncidentStatus.Assigned),
+
+                InProgressIncidents = group.Count(x =>
+                    x.Status == IncidentStatus.InProgress),
+
+                ResolvedIncidents = group.Count(x =>
+                    x.Status == IncidentStatus.Resolved),
+
+                ClosedIncidents = group.Count(x =>
+                    x.Status == IncidentStatus.Closed)
+            });
+        }
+
+        return result;
     }
 }
