@@ -45,7 +45,17 @@ public class DashboardService : IDashboardService
                 x => x.IsResponseSlaBreached()),
 
             ResolutionSlaBreachedCount = incidents.Count(
-                x => x.IsResolutionSlaBreached())
+                x => x.IsResolutionSlaBreached()),
+            
+            LowPriorityCount = incidents.Count(x => x.Priority == Priority.Low),
+            MediumPriorityCount = incidents.Count(x => x.Priority == Priority.Medium),
+            HighPriorityCount = incidents.Count(x => x.Priority == Priority.High),
+            CriticalPriorityCount = incidents.Count(x => x.Priority == Priority.Critical),
+
+            LowSeverityCount = incidents.Count(x => x.Severity == Severity.Low),
+            MediumSeverityCount = incidents.Count(x => x.Severity == Severity.Medium),
+            HighSeverityCount = incidents.Count(x => x.Severity == Severity.High),
+            CriticalSeverityCount = incidents.Count(x => x.Severity == Severity.Critical),
         };
     }
 }

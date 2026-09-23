@@ -19,4 +19,14 @@ public class DashboardResponse
     public int ResponseSlaBreachedCount { get; set; }
 
     public int ResolutionSlaBreachedCount { get; set; }
+    
+    public int LowPriorityCount { get; set; }
+    public int MediumPriorityCount { get; set; }
+    public int HighPriorityCount { get; set; }
+    public int CriticalPriorityCount { get; set; }
+
+    public int LowSeverityCount { get; set; }
+    public int MediumSeverityCount { get; set; }
+    public int HighSeverityCount { get; set; }
+    public int CriticalSeverityCount { get; set; }
 }
