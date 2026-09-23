@@ -17,9 +17,9 @@ public class DashboardResponse
     public int CancelledIncidents { get; set; }
 
     public int ResponseSlaBreachedCount { get; set; }
-
     public int ResolutionSlaBreachedCount { get; set; }
-    
+    public int ResponseSlaAtRiskCount { get; set; }
+    public int ResolutionSlaAtRiskCount { get; set; }
     public int LowPriorityCount { get; set; }
     public int MediumPriorityCount { get; set; }
     public int HighPriorityCount { get; set; }
@@ -29,4 +29,5 @@ public class DashboardResponse
     public int MediumSeverityCount { get; set; }
     public int HighSeverityCount { get; set; }
     public int CriticalSeverityCount { get; set; }
+    public double AverageResolutionTimeMinutes { get; set; }
 }

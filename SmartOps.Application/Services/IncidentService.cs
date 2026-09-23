@@ -498,6 +498,8 @@ public class IncidentService : IIncidentService
             RespondedAt = incident.RespondedAt,
             ResponseSlaBreached = incident.IsResponseSlaBreached(),
             ResolutionSlaBreached = incident.IsResolutionSlaBreached(),
+            ResponseSlaAtRisk = incident.IsResponseSlaAtRisk(),
+            ResolutionSlaAtRisk = incident.IsResolutionSlaAtRisk(),
             ResolvedAt = incident.ResolvedAt,
             ClosedAt = incident.ClosedAt,
             ResolutionNotes = incident.ResolutionNotes,

@@ -47,6 +47,9 @@ public class DashboardService : IDashboardService
             ResolutionSlaBreachedCount = incidents.Count(
                 x => x.IsResolutionSlaBreached()),
             
+            ResponseSlaAtRiskCount = incidents.Count(x => x.IsResponseSlaAtRisk()),
+            ResolutionSlaAtRiskCount = incidents.Count(x => x.IsResolutionSlaAtRisk()),
+            
             LowPriorityCount = incidents.Count(x => x.Priority == Priority.Low),
             MediumPriorityCount = incidents.Count(x => x.Priority == Priority.Medium),
             HighPriorityCount = incidents.Count(x => x.Priority == Priority.High),
@@ -56,6 +59,51 @@ public class DashboardService : IDashboardService
             MediumSeverityCount = incidents.Count(x => x.Severity == Severity.Medium),
             HighSeverityCount = incidents.Count(x => x.Severity == Severity.High),
             CriticalSeverityCount = incidents.Count(x => x.Severity == Severity.Critical),
+            
+            AverageResolutionTimeMinutes = incidents
+            .Where(x => x.ResolvedAt.HasValue)
+            .Select(x => (x.ResolvedAt!.Value - x.CreatedAt).TotalMinutes)
+            .DefaultIfEmpty(0)
+            .Average(),
         };
+        
+        
+    }
+    public async Task<List<MonthlyIncidentTrendResponse>> GetMonthlyIncidentTrendAsync()
+    {
+        var incidents = await _incidentRepository.GetAllAsync();
+
+        return incidents
+            .GroupBy(x => new
+            {
+                x.CreatedAt.Year,
+                x.CreatedAt.Month
+            })
+            .OrderBy(x => x.Key.Year)
+            .ThenBy(x => x.Key.Month)
+            .Select(x => new MonthlyIncidentTrendResponse
+            {
+                Year = x.Key.Year,
+                Month = x.Key.Month,
+
+                MonthName = new DateTime(
+                    x.Key.Year,
+                    x.Key.Month,
+                    1
+                ).ToString("MMMM"),
+
+                IncidentCount = x.Count(),
+
+                ResolvedCount = x.Count(i =>
+                    i.ResolvedAt.HasValue &&
+                    i.ResolvedAt.Value.Year == x.Key.Year &&
+                    i.ResolvedAt.Value.Month == x.Key.Month),
+
+                ClosedCount = x.Count(i =>
+                    i.ClosedAt.HasValue &&
+                    i.ClosedAt.Value.Year == x.Key.Year &&
+                    i.ClosedAt.Value.Month == x.Key.Month)
+            })
+            .ToList();
     }
 }

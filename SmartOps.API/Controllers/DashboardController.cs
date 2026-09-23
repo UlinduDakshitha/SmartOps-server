@@ -24,4 +24,10 @@ public class DashboardController : ControllerBase
 
         return Ok(summary);
     }
+    [HttpGet("monthly-trend")]
+    public async Task<IActionResult> GetMonthlyTrend()
+    {
+        var trend = await _dashboardService.GetMonthlyIncidentTrendAsync();
+        return Ok(trend);
+    }
 }
