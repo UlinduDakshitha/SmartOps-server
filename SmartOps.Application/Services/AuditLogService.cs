@@ -7,6 +7,7 @@ namespace SmartOps.Application.Services;
 public class AuditLogService : IAuditLogService
 {
     private readonly IAuditLogRepository _auditLogRepository;
+    
 
     public AuditLogService(
         IAuditLogRepository auditLogRepository)

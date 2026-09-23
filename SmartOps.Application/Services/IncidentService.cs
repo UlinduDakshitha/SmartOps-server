@@ -16,6 +16,7 @@ public class IncidentService : IIncidentService
     private readonly IIncidentHistoryRepository _incidentHistoryRepository;
     private readonly ISLAPolicyRepository _slaPolicyRepository;
     private readonly INotificationService _notificationService;
+    private readonly IAuditLogService _auditLogService;
     
     public IncidentService(
         IIncidentRepository incidentRepository,
@@ -25,7 +26,8 @@ public class IncidentService : IIncidentService
         IIncidentAssignmentRepository incidentAssignmentRepository,
             IIncidentHistoryRepository incidentHistoryRepository,
             ISLAPolicyRepository slaPolicyRepository,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        IAuditLogService auditLogService)
     {
         _incidentRepository = incidentRepository;
         _userRepository = userRepository;
@@ -35,6 +37,7 @@ public class IncidentService : IIncidentService
         _incidentHistoryRepository = incidentHistoryRepository;
         _slaPolicyRepository = slaPolicyRepository;
         _notificationService = notificationService;
+        _auditLogService = auditLogService;
     }
 
     public async Task<IncidentResponse> GetByIdAsync(Guid id)
@@ -109,6 +112,16 @@ public class IncidentService : IIncidentService
 
         await _incidentHistoryRepository.AddAsync(history);
         return MapToResponse(incident);
+        
+        await _auditLogService.LogAsync(
+            createdByUserId,
+            "Incident Created",
+            "Incident",
+            incident.Id,
+            null,
+            $"IncidentNumber: {incident.IncidentNumber}, " +
+            $"Priority: {incident.Priority}, " +
+            $"Severity: {incident.Severity}");
     }
 
     public async Task<IncidentResponse> UpdateAsync(
@@ -155,6 +168,14 @@ public class IncidentService : IIncidentService
         await _incidentHistoryRepository.AddAsync(history);
 
         return MapToResponse(incident);
+        
+        await _auditLogService.LogAsync(
+            incident.CreatedByUserId,
+            "Incident Updated",
+            "Incident",
+            incident.Id,
+            oldValue,
+            newValue);
     }
 
     public async Task AssignAsync(
@@ -243,6 +264,14 @@ public class IncidentService : IIncidentService
 
         await _incidentHistoryRepository.AddAsync(history); 
         
+        await _auditLogService.LogAsync(
+            assignedByUserId,
+            "Incident Assigned",
+            "Incident",
+            incident.Id,
+            oldValue,
+            newValue);
+        
         if (request.UserId.HasValue)
         {
             await _notificationService.CreateAsync(
@@ -276,6 +305,14 @@ public class IncidentService : IIncidentService
             newValue);
 
         await _incidentHistoryRepository.AddAsync(history);
+        
+        await _auditLogService.LogAsync(
+            incident.AssignedUserId ?? incident.CreatedByUserId,
+            "Incident Started",
+            "Incident",
+            incident.Id,
+            oldValue,
+            newValue);
     }
 
     public async Task ResolveAsync(
@@ -305,6 +342,14 @@ public class IncidentService : IIncidentService
             newValue);
 
         await _incidentHistoryRepository.AddAsync(history);
+        
+        await _auditLogService.LogAsync(
+            incident.AssignedUserId ?? incident.CreatedByUserId,
+            "Incident Started",
+            "Incident",
+            incident.Id,
+            oldValue,
+            newValue);
         
         if (incident.AssignedUserId.HasValue)
         {
@@ -339,6 +384,14 @@ public class IncidentService : IIncidentService
             newValue);
 
         await _incidentHistoryRepository.AddAsync(history);
+        
+        await _auditLogService.LogAsync(
+            incident.AssignedUserId ?? incident.CreatedByUserId,
+            "Incident Closed",
+            "Incident",
+            incident.Id,
+            oldValue,
+            newValue);
         
         if (incident.AssignedUserId.HasValue)
         {
