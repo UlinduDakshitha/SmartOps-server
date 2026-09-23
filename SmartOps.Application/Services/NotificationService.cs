@@ -1,4 +1,5 @@
 ﻿using SmartOps.Application.DTOs.Notifications;
+using SmartOps.Application.Interfaces;
 using SmartOps.Application.Interfaces.Repositories;
 using SmartOps.Application.Interfaces.Services;
 using SmartOps.Domain.Entities;
@@ -8,11 +9,14 @@ namespace SmartOps.Application.Services;
 public class NotificationService : INotificationService
 {
     private readonly INotificationRepository _notificationRepository;
+    private readonly INotificationPublisher _notificationPublisher;
 
     public NotificationService(
-        INotificationRepository notificationRepository)
+        INotificationRepository notificationRepository,
+        INotificationPublisher notificationPublisher)
     {
         _notificationRepository = notificationRepository;
+        _notificationPublisher = notificationPublisher;
     }
     public async Task<NotificationResponse> CreateAsync(
         Guid userId,
@@ -27,6 +31,12 @@ public class NotificationService : INotificationService
             type.Trim());
 
         await _notificationRepository.AddAsync(notification);
+        
+        await _notificationPublisher.PublishAsync(
+            userId,
+            notification.Title,
+            notification.Message,
+            notification.Type);
 
         return MapToResponse(notification);
     }
