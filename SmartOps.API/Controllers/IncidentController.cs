@@ -24,6 +24,24 @@ public class IncidentController : ControllerBase
         var incidents = await _incidentService.GetAllAsync();
         return Ok(incidents);
     }
+    
+    [HttpGet("paged")]
+    public async Task<IActionResult> GetPaged(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? status = null,
+        [FromQuery] string? priority = null,
+        [FromQuery] string? severity = null)
+    {
+        var result = await _incidentService.GetPagedAsync(
+            pageNumber,
+            pageSize,
+            status,
+            priority,
+            severity);
+
+        return Ok(result);
+    }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)

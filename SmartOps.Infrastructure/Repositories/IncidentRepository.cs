@@ -16,25 +16,18 @@ public class IncidentRepository : IIncidentRepository
     }
 
     public async Task<Incident?> GetByIdAsync(Guid id)
-    {
-        return await _context.Incidents
+        => await _context.Incidents
             .FirstOrDefaultAsync(x => x.Id == id);
-    }
 
     public async Task<Incident?> GetByIncidentNumberAsync(
         string incidentNumber)
-    {
-        return await _context.Incidents
-            .FirstOrDefaultAsync(
-                x => x.IncidentNumber == incidentNumber);
-    }
+        => await _context.Incidents
+            .FirstOrDefaultAsync(x => x.IncidentNumber == incidentNumber);
 
     public async Task<List<Incident>> GetAllAsync()
-    {
-        return await _context.Incidents
+        => await _context.Incidents
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
-    }
 
     public async Task<List<Incident>> GetByStatusAsync(
         string status)
@@ -51,6 +44,86 @@ public class IncidentRepository : IIncidentRepository
             .Where(x => x.Status == incidentStatus)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
+    }
+
+    public async Task<List<Incident>> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        string? status = null,
+        string? priority = null,
+        string? severity = null)
+    {
+        var query = _context.Incidents.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(status) &&
+            Enum.TryParse<IncidentStatus>(
+                status,
+                true,
+                out var incidentStatus))
+        {
+            query = query.Where(x => x.Status == incidentStatus);
+        }
+
+        if (!string.IsNullOrWhiteSpace(priority) &&
+            Enum.TryParse<Priority>(
+                priority,
+                true,
+                out var incidentPriority))
+        {
+            query = query.Where(x => x.Priority == incidentPriority);
+        }
+
+        if (!string.IsNullOrWhiteSpace(severity) &&
+            Enum.TryParse<Severity>(
+                severity,
+                true,
+                out var incidentSeverity))
+        {
+            query = query.Where(x => x.Severity == incidentSeverity);
+        }
+
+        return await query
+            .OrderByDescending(x => x.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+    }
+
+    public async Task<int> GetCountAsync(
+        string? status = null,
+        string? priority = null,
+        string? severity = null)
+    {
+        var query = _context.Incidents.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(status) &&
+            Enum.TryParse<IncidentStatus>(
+                status,
+                true,
+                out var incidentStatus))
+        {
+            query = query.Where(x => x.Status == incidentStatus);
+        }
+
+        if (!string.IsNullOrWhiteSpace(priority) &&
+            Enum.TryParse<Priority>(
+                priority,
+                true,
+                out var incidentPriority))
+        {
+            query = query.Where(x => x.Priority == incidentPriority);
+        }
+
+        if (!string.IsNullOrWhiteSpace(severity) &&
+            Enum.TryParse<Severity>(
+                severity,
+                true,
+                out var incidentSeverity))
+        {
+            query = query.Where(x => x.Severity == incidentSeverity);
+        }
+
+        return await query.CountAsync();
     }
 
     public async Task AddAsync(Incident incident)

@@ -58,6 +58,50 @@ public class IncidentService : IIncidentService
             .Select(MapToResponse)
             .ToList();
     }
+    public async Task<IncidentListResponse> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        string? status = null,
+        string? priority = null,
+        string? severity = null)
+    {
+        if (pageNumber < 1)
+            throw new ArgumentException(
+                "Page number must be greater than zero.",
+                nameof(pageNumber));
+
+        if (pageSize < 1 || pageSize > 100)
+            throw new ArgumentException(
+                "Page size must be between 1 and 100.",
+                nameof(pageSize));
+
+        var incidents = await _incidentRepository.GetPagedAsync(
+            pageNumber,
+            pageSize,
+            status,
+            priority,
+            severity);
+
+        var totalCount = await _incidentRepository.GetCountAsync(
+            status,
+            priority,
+            severity);
+
+        var totalPages = (int)Math.Ceiling(
+            totalCount / (double)pageSize);
+
+        return new IncidentListResponse
+        {
+            Items = incidents
+                .Select(MapToResponse)
+                .ToList(),
+
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalCount = totalCount,
+            TotalPages = totalPages
+        };
+    }
 
     public async Task<IncidentResponse> CreateAsync(
         CreateIncidentRequest request,
