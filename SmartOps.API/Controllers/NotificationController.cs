@@ -32,7 +32,11 @@ public class NotificationController : ControllerBase
     [HttpPatch("{id:guid}/read")]
     public async Task<IActionResult> MarkAsRead(Guid id)
     {
-        await _notificationService.MarkAsReadAsync(id);
+        var userId = GetCurrentUserId();
+
+        await _notificationService.MarkAsReadAsync(
+            id,
+            userId);
 
         return Ok(new
         {
@@ -43,7 +47,11 @@ public class NotificationController : ControllerBase
     [HttpPatch("{id:guid}/unread")]
     public async Task<IActionResult> MarkAsUnread(Guid id)
     {
-        await _notificationService.MarkAsUnreadAsync(id);
+        var userId = GetCurrentUserId();
+
+        await _notificationService.MarkAsUnreadAsync(
+            id,
+            userId);
 
         return Ok(new
         {

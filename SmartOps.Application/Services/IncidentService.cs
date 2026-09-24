@@ -17,15 +17,15 @@ public class IncidentService : IIncidentService
     private readonly ISLAPolicyRepository _slaPolicyRepository;
     private readonly INotificationService _notificationService;
     private readonly IAuditLogService _auditLogService;
-    
+
     public IncidentService(
         IIncidentRepository incidentRepository,
         IUserRepository userRepository,
         ITeamRepository teamRepository,
         IIncidentCommentRepository incidentCommentRepository,
         IIncidentAssignmentRepository incidentAssignmentRepository,
-            IIncidentHistoryRepository incidentHistoryRepository,
-            ISLAPolicyRepository slaPolicyRepository,
+        IIncidentHistoryRepository incidentHistoryRepository,
+        ISLAPolicyRepository slaPolicyRepository,
         INotificationService notificationService,
         IAuditLogService auditLogService)
     {
@@ -58,6 +58,7 @@ public class IncidentService : IIncidentService
             .Select(MapToResponse)
             .ToList();
     }
+
     public async Task<IncidentListResponse> GetPagedAsync(
         int pageNumber,
         int pageSize,
@@ -110,7 +111,8 @@ public class IncidentService : IIncidentService
         var user = await _userRepository.GetByIdAsync(createdByUserId);
 
         if (user is null)
-            throw new KeyNotFoundException("Creating user not found.");
+            throw new KeyNotFoundException(
+                "Creating user not found.");
 
         if (!user.IsActive)
             throw new InvalidOperationException(
@@ -125,7 +127,7 @@ public class IncidentService : IIncidentService
             request.Priority,
             request.Severity,
             createdByUserId);
-        
+
         var slaPolicy = await _slaPolicyRepository
             .GetByPriorityAsync(request.Priority);
 
@@ -155,8 +157,7 @@ public class IncidentService : IIncidentService
             IncidentStatus.New.ToString());
 
         await _incidentHistoryRepository.AddAsync(history);
-        return MapToResponse(incident);
-        
+
         await _auditLogService.LogAsync(
             createdByUserId,
             "Incident Created",
@@ -166,12 +167,17 @@ public class IncidentService : IIncidentService
             $"IncidentNumber: {incident.IncidentNumber}, " +
             $"Priority: {incident.Priority}, " +
             $"Severity: {incident.Severity}");
+
+        return MapToResponse(incident);
     }
 
     public async Task<IncidentResponse> UpdateAsync(
         Guid id,
-        UpdateIncidentRequest request)
+        UpdateIncidentRequest request,
+        Guid updatedByUserId)
     {
+        await ValidateActiveUserAsync(updatedByUserId);
+
         var incident = await _incidentRepository.GetByIdAsync(id);
 
         if (incident is null)
@@ -204,22 +210,22 @@ public class IncidentService : IIncidentService
 
         var history = new IncidentHistory(
             incident.Id,
-            incident.CreatedByUserId,
+            updatedByUserId,
             "Incident Updated",
             oldValue,
             newValue);
 
         await _incidentHistoryRepository.AddAsync(history);
 
-        return MapToResponse(incident);
-        
         await _auditLogService.LogAsync(
-            incident.CreatedByUserId,
+            updatedByUserId,
             "Incident Updated",
             "Incident",
             incident.Id,
             oldValue,
             newValue);
+
+        return MapToResponse(incident);
     }
 
     public async Task AssignAsync(
@@ -306,8 +312,8 @@ public class IncidentService : IIncidentService
             oldValue,
             newValue);
 
-        await _incidentHistoryRepository.AddAsync(history); 
-        
+        await _incidentHistoryRepository.AddAsync(history);
+
         await _auditLogService.LogAsync(
             assignedByUserId,
             "Incident Assigned",
@@ -315,7 +321,7 @@ public class IncidentService : IIncidentService
             incident.Id,
             oldValue,
             newValue);
-        
+
         if (request.UserId.HasValue)
         {
             await _notificationService.CreateAsync(
@@ -326,8 +332,12 @@ public class IncidentService : IIncidentService
         }
     }
 
-    public async Task StartProgressAsync(Guid id)
+    public async Task StartProgressAsync(
+        Guid id,
+        Guid startedByUserId)
     {
+        await ValidateActiveUserAsync(startedByUserId);
+
         var incident = await _incidentRepository.GetByIdAsync(id);
 
         if (incident is null)
@@ -343,15 +353,15 @@ public class IncidentService : IIncidentService
 
         var history = new IncidentHistory(
             incident.Id,
-            incident.AssignedUserId ?? incident.CreatedByUserId,
+            startedByUserId,
             "Incident Started",
             oldValue,
             newValue);
 
         await _incidentHistoryRepository.AddAsync(history);
-        
+
         await _auditLogService.LogAsync(
-            incident.AssignedUserId ?? incident.CreatedByUserId,
+            startedByUserId,
             "Incident Started",
             "Incident",
             incident.Id,
@@ -361,8 +371,11 @@ public class IncidentService : IIncidentService
 
     public async Task ResolveAsync(
         Guid id,
-        ResolveIncidentRequest request)
+        ResolveIncidentRequest request,
+        Guid resolvedByUserId)
     {
+        await ValidateActiveUserAsync(resolvedByUserId);
+
         var incident = await _incidentRepository.GetByIdAsync(id);
 
         if (incident is null)
@@ -380,21 +393,21 @@ public class IncidentService : IIncidentService
 
         var history = new IncidentHistory(
             incident.Id,
-            incident.AssignedUserId ?? incident.CreatedByUserId,
+            resolvedByUserId,
             "Incident Resolved",
             oldValue,
             newValue);
 
         await _incidentHistoryRepository.AddAsync(history);
-        
+
         await _auditLogService.LogAsync(
-            incident.AssignedUserId ?? incident.CreatedByUserId,
-            "Incident Started",
+            resolvedByUserId,
+            "Incident Resolved",
             "Incident",
             incident.Id,
             oldValue,
             newValue);
-        
+
         if (incident.AssignedUserId.HasValue)
         {
             await _notificationService.CreateAsync(
@@ -405,8 +418,12 @@ public class IncidentService : IIncidentService
         }
     }
 
-    public async Task CloseAsync(Guid id)
+    public async Task CloseAsync(
+        Guid id,
+        Guid closedByUserId)
     {
+        await ValidateActiveUserAsync(closedByUserId);
+
         var incident = await _incidentRepository.GetByIdAsync(id);
 
         if (incident is null)
@@ -422,21 +439,21 @@ public class IncidentService : IIncidentService
 
         var history = new IncidentHistory(
             incident.Id,
-            incident.AssignedUserId ?? incident.CreatedByUserId,
+            closedByUserId,
             "Incident Closed",
             oldValue,
             newValue);
 
         await _incidentHistoryRepository.AddAsync(history);
-        
+
         await _auditLogService.LogAsync(
-            incident.AssignedUserId ?? incident.CreatedByUserId,
+            closedByUserId,
             "Incident Closed",
             "Incident",
             incident.Id,
             oldValue,
             newValue);
-        
+
         if (incident.AssignedUserId.HasValue)
         {
             await _notificationService.CreateAsync(
@@ -447,8 +464,12 @@ public class IncidentService : IIncidentService
         }
     }
 
-    public async Task CancelAsync(Guid id)
+    public async Task CancelAsync(
+        Guid id,
+        Guid cancelledByUserId)
     {
+        await ValidateActiveUserAsync(cancelledByUserId);
+
         var incident = await _incidentRepository.GetByIdAsync(id);
 
         if (incident is null)
@@ -464,13 +485,21 @@ public class IncidentService : IIncidentService
 
         var history = new IncidentHistory(
             incident.Id,
-            incident.AssignedUserId ?? incident.CreatedByUserId,
+            cancelledByUserId,
             "Incident Cancelled",
             oldValue,
             newValue);
 
         await _incidentHistoryRepository.AddAsync(history);
-        
+
+        await _auditLogService.LogAsync(
+            cancelledByUserId,
+            "Incident Cancelled",
+            "Incident",
+            incident.Id,
+            oldValue,
+            newValue);
+
         if (incident.AssignedUserId.HasValue)
         {
             await _notificationService.CreateAsync(
@@ -517,6 +546,18 @@ public class IncidentService : IIncidentService
         };
     }
 
+    private async Task ValidateActiveUserAsync(Guid userId)
+    {
+        var user = await _userRepository.GetByIdAsync(userId);
+
+        if (user is null)
+            throw new KeyNotFoundException("User not found.");
+
+        if (!user.IsActive)
+            throw new InvalidOperationException(
+                "An inactive user cannot perform this action.");
+    }
+
     private static string GenerateIncidentNumber()
     {
         return $"INC-{DateTime.UtcNow:yyyyMMddHHmmssfff}";
@@ -537,13 +578,23 @@ public class IncidentService : IIncidentService
             CreatedByUserId = incident.CreatedByUserId,
             AssignedTeamId = incident.AssignedTeamId,
             AssignedUserId = incident.AssignedUserId,
+
             ResponseDueAt = incident.ResponseDueAt,
             ResolutionDueAt = incident.ResolutionDueAt,
             RespondedAt = incident.RespondedAt,
-            ResponseSlaBreached = incident.IsResponseSlaBreached(),
-            ResolutionSlaBreached = incident.IsResolutionSlaBreached(),
-            ResponseSlaAtRisk = incident.IsResponseSlaAtRisk(),
-            ResolutionSlaAtRisk = incident.IsResolutionSlaAtRisk(),
+
+            ResponseSlaBreached =
+                incident.IsResponseSlaBreached(),
+
+            ResolutionSlaBreached =
+                incident.IsResolutionSlaBreached(),
+
+            ResponseSlaAtRisk =
+                incident.IsResponseSlaAtRisk(),
+
+            ResolutionSlaAtRisk =
+                incident.IsResolutionSlaAtRisk(),
+
             ResolvedAt = incident.ResolvedAt,
             ClosedAt = incident.ClosedAt,
             ResolutionNotes = incident.ResolutionNotes,

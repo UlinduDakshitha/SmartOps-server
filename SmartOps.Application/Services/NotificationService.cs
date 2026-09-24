@@ -51,28 +51,40 @@ public class NotificationService : INotificationService
             .ToList();
     }
 
-    public async Task MarkAsReadAsync(Guid notificationId)
+    public async Task MarkAsReadAsync(
+        Guid notificationId,
+        Guid userId)
     {
-        var notification =
-            await _notificationRepository.GetByIdAsync(notificationId);
+        var notification = await _notificationRepository
+            .GetByIdAsync(notificationId);
 
         if (notification is null)
             throw new KeyNotFoundException(
                 "Notification not found.");
+
+        if (notification.UserId != userId)
+            throw new UnauthorizedAccessException(
+                "You are not authorized to update this notification.");
 
         notification.MarkAsRead();
 
         await _notificationRepository.UpdateAsync(notification);
     }
 
-    public async Task MarkAsUnreadAsync(Guid notificationId)
+    public async Task MarkAsUnreadAsync(
+        Guid notificationId,
+        Guid userId)
     {
-        var notification =
-            await _notificationRepository.GetByIdAsync(notificationId);
+        var notification = await _notificationRepository
+            .GetByIdAsync(notificationId);
 
         if (notification is null)
             throw new KeyNotFoundException(
                 "Notification not found.");
+
+        if (notification.UserId != userId)
+            throw new UnauthorizedAccessException(
+                "You are not authorized to update this notification.");
 
         notification.MarkAsUnread();
 

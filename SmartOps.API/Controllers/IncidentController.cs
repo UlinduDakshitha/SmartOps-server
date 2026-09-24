@@ -13,7 +13,8 @@ public class IncidentController : ControllerBase
 {
     private readonly IIncidentService _incidentService;
 
-    public IncidentController(IIncidentService incidentService)
+    public IncidentController(
+        IIncidentService incidentService)
     {
         _incidentService = incidentService;
     }
@@ -21,10 +22,9 @@ public class IncidentController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var incidents = await _incidentService.GetAllAsync();
-        return Ok(incidents);
+        return Ok(await _incidentService.GetAllAsync());
     }
-    
+
     [HttpGet("paged")]
     public async Task<IActionResult> GetPaged(
         [FromQuery] int pageNumber = 1,
@@ -46,8 +46,7 @@ public class IncidentController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id)
     {
-        var incident = await _incidentService.GetByIdAsync(id);
-        return Ok(incident);
+        return Ok(await _incidentService.GetByIdAsync(id));
     }
 
     [HttpPost]
@@ -71,9 +70,12 @@ public class IncidentController : ControllerBase
         Guid id,
         UpdateIncidentRequest request)
     {
+        var userId = GetCurrentUserId();
+
         var incident = await _incidentService.UpdateAsync(
             id,
-            request);
+            request,
+            userId);
 
         return Ok(incident);
     }
@@ -99,7 +101,11 @@ public class IncidentController : ControllerBase
     [HttpPatch("{id:guid}/start")]
     public async Task<IActionResult> StartProgress(Guid id)
     {
-        await _incidentService.StartProgressAsync(id);
+        var userId = GetCurrentUserId();
+
+        await _incidentService.StartProgressAsync(
+            id,
+            userId);
 
         return Ok(new
         {
@@ -112,9 +118,12 @@ public class IncidentController : ControllerBase
         Guid id,
         ResolveIncidentRequest request)
     {
+        var userId = GetCurrentUserId();
+
         await _incidentService.ResolveAsync(
             id,
-            request);
+            request,
+            userId);
 
         return Ok(new
         {
@@ -125,7 +134,11 @@ public class IncidentController : ControllerBase
     [HttpPatch("{id:guid}/close")]
     public async Task<IActionResult> Close(Guid id)
     {
-        await _incidentService.CloseAsync(id);
+        var userId = GetCurrentUserId();
+
+        await _incidentService.CloseAsync(
+            id,
+            userId);
 
         return Ok(new
         {
@@ -136,7 +149,11 @@ public class IncidentController : ControllerBase
     [HttpPatch("{id:guid}/cancel")]
     public async Task<IActionResult> Cancel(Guid id)
     {
-        await _incidentService.CancelAsync(id);
+        var userId = GetCurrentUserId();
+
+        await _incidentService.CancelAsync(
+            id,
+            userId);
 
         return Ok(new
         {
@@ -164,9 +181,13 @@ public class IncidentController : ControllerBase
         var userId = User.FindFirst(
             ClaimTypes.NameIdentifier)?.Value;
 
-        if (!Guid.TryParse(userId, out var parsedUserId))
+        if (!Guid.TryParse(
+                userId,
+                out var parsedUserId))
+        {
             throw new UnauthorizedAccessException(
                 "User identity is invalid.");
+        }
 
         return parsedUserId;
     }
