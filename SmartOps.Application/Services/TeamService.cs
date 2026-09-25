@@ -129,6 +129,12 @@ public class TeamService : ITeamService
 
         if (user is null)
             throw new KeyNotFoundException("User not found.");
+        
+        if (team.TeamLeadId == userId)
+        {
+            throw new InvalidOperationException(
+                "A team lead cannot be removed from the team. Remove the team lead first.");
+        }
 
         await _teamMemberRepository.RemoveAsync(teamId, userId);
     }
@@ -151,6 +157,11 @@ public class TeamService : ITeamService
         {
             throw new KeyNotFoundException(
                 "User not found.");
+        }
+        if (!await _teamMemberRepository.ExistsAsync(teamId, userId))
+        {
+            throw new InvalidOperationException(
+                "The user must be a member of the team before being assigned as team lead.");
         }
 
         if (!user.IsActive)

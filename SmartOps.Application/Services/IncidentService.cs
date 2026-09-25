@@ -3,6 +3,7 @@ using SmartOps.Application.Interfaces.Repositories;
 using SmartOps.Application.Interfaces.Services;
 using SmartOps.Domain.Entities;
 using SmartOps.Domain.Enums;
+using SmartOps.Application.Interfaces.Repositories;
 
 namespace SmartOps.Application.Services;
 
@@ -17,11 +18,13 @@ public class IncidentService : IIncidentService
     private readonly ISLAPolicyRepository _slaPolicyRepository;
     private readonly INotificationService _notificationService;
     private readonly IAuditLogService _auditLogService;
+    private readonly ITeamMemberRepository _teamMemberRepository;
 
     public IncidentService(
         IIncidentRepository incidentRepository,
         IUserRepository userRepository,
         ITeamRepository teamRepository,
+        ITeamMemberRepository teamMemberRepository,
         IIncidentCommentRepository incidentCommentRepository,
         IIncidentAssignmentRepository incidentAssignmentRepository,
         IIncidentHistoryRepository incidentHistoryRepository,
@@ -32,6 +35,7 @@ public class IncidentService : IIncidentService
         _incidentRepository = incidentRepository;
         _userRepository = userRepository;
         _teamRepository = teamRepository;
+        _teamMemberRepository = teamMemberRepository;
         _incidentCommentRepository = incidentCommentRepository;
         _incidentAssignmentRepository = incidentAssignmentRepository;
         _incidentHistoryRepository = incidentHistoryRepository;
@@ -330,6 +334,27 @@ public class IncidentService : IIncidentService
                 $"Incident {incident.IncidentNumber} has been assigned to you.",
                 "IncidentAssignment");
         }
+        
+        if (request.UserId.HasValue)
+        {
+            var assignedUser = await _userRepository
+                .GetByIdAsync(request.UserId.Value);
+
+            if (assignedUser is null)
+                throw new KeyNotFoundException("Assigned user not found.");
+
+            if (!assignedUser.IsActive)
+                throw new InvalidOperationException(
+                    "Cannot assign an incident to an inactive user.");
+
+            if (!await _teamMemberRepository.ExistsAsync(
+                    request.TeamId,
+                    request.UserId.Value))
+            {
+                throw new InvalidOperationException(
+                    "The assigned user must be a member of the selected team.");
+            }
+        }
     }
 
     public async Task StartProgressAsync(
@@ -542,7 +567,8 @@ public class IncidentService : IIncidentService
             Id = comment.Id,
             IncidentId = comment.IncidentId,
             UserId = comment.UserId,
-            Comment = comment.Comment
+            Comment = comment.Comment,
+            CreatedAt = comment.CreatedAt
         };
     }
 
