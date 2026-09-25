@@ -8,7 +8,6 @@ namespace SmartOps.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "AdminOnly")]
-
 public class UserController : ControllerBase
 {
     private readonly IUserService _userService;
@@ -74,6 +73,29 @@ public class UserController : ControllerBase
         return Ok(new
         {
             Message = "User deactivated successfully."
+        });
+    }
+
+    [HttpGet("{id:guid}/roles")]
+    public async Task<IActionResult> GetRoles(Guid id)
+    {
+        var result = await _userService.GetRolesAsync(id);
+
+        return Ok(result);
+    }
+
+    [HttpPost("{id:guid}/roles/{roleId:guid}")]
+    public async Task<IActionResult> AssignRole(
+        Guid id,
+        Guid roleId)
+    {
+        await _userService.AssignRoleAsync(
+            id,
+            roleId);
+
+        return Ok(new
+        {
+            Message = "Role assigned successfully."
         });
     }
 }

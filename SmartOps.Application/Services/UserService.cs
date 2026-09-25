@@ -1,4 +1,5 @@
-﻿using SmartOps.Application.DTOs.Users;
+﻿using SmartOps.Application.DTOs.Roles;
+using SmartOps.Application.DTOs.Users;
 using SmartOps.Application.Interfaces;
 using SmartOps.Application.Interfaces.Repositories;
 using SmartOps.Application.Interfaces.Services;
@@ -9,13 +10,19 @@ namespace SmartOps.Application.Services;
 public class UserService : IUserService
 {
     private readonly IUserRepository _userRepository;
+    private readonly IRoleRepository _roleRepository;
+    private readonly IUserRoleRepository _userRoleRepository;
     private readonly IPasswordHasher _passwordHasher;
 
     public UserService(
         IUserRepository userRepository,
+        IRoleRepository roleRepository,
+        IUserRoleRepository userRoleRepository,
         IPasswordHasher passwordHasher)
     {
         _userRepository = userRepository;
+        _roleRepository = roleRepository;
+        _userRoleRepository = userRoleRepository;
         _passwordHasher = passwordHasher;
     }
 
@@ -84,9 +91,6 @@ public class UserService : IUserService
                 "User not found.");
         }
 
-        // User entity currently has no update method.
-        // We will add the domain update method next.
-
         user.Update(
             request.FullName.Trim(),
             request.Email.Trim().ToLowerInvariant());
@@ -124,6 +128,66 @@ public class UserService : IUserService
         user.Activate();
 
         await _userRepository.UpdateAsync(user);
+    }
+
+    public async Task<List<RoleResponse>> GetRolesAsync(
+        Guid userId)
+    {
+        var user = await _userRepository.GetByIdAsync(userId);
+
+        if (user is null)
+        {
+            throw new KeyNotFoundException(
+                "User not found.");
+        }
+
+        var roles = await _userRoleRepository
+            .GetRolesByUserIdAsync(userId);
+
+        return roles
+            .Select(role => new RoleResponse
+            {
+                Id = role.Id,
+                Name = role.Name,
+                Description = role.Description
+            })
+            .ToList();
+    }
+
+    public async Task AssignRoleAsync(
+        Guid userId,
+        Guid roleId)
+    {
+        var user = await _userRepository.GetByIdAsync(userId);
+
+        if (user is null)
+        {
+            throw new KeyNotFoundException(
+                "User not found.");
+        }
+
+        var role = await _roleRepository.GetByIdAsync(roleId);
+
+        if (role is null)
+        {
+            throw new KeyNotFoundException(
+                "Role not found.");
+        }
+
+        var alreadyAssigned = await _userRoleRepository
+            .ExistsAsync(userId, roleId);
+
+        if (alreadyAssigned)
+        {
+            throw new InvalidOperationException(
+                "This role is already assigned to the user.");
+        }
+
+        var userRole = new UserRole(
+            userId,
+            roleId);
+
+        await _userRoleRepository.AddAsync(userRole);
     }
 
     private static UserResponse MapToResponse(User user)
