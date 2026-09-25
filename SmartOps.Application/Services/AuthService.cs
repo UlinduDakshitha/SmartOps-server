@@ -14,6 +14,7 @@ public class AuthService : IAuthService
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IAuditLogService _auditLogService;
 
     public AuthService(
         IUserRepository userRepository,
@@ -21,7 +22,8 @@ public class AuthService : IAuthService
         IUserRoleRepository userRoleRepository,
         IRefreshTokenRepository refreshTokenRepository,
         IPasswordHasher passwordHasher,
-        IJwtTokenService jwtTokenService)
+        IJwtTokenService jwtTokenService,
+        IAuditLogService auditLogService)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
@@ -29,6 +31,7 @@ public class AuthService : IAuthService
         _refreshTokenRepository = refreshTokenRepository;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
+        _auditLogService = auditLogService;
     }
 
     public async Task<RegisterResponse> RegisterAsync(
@@ -66,6 +69,14 @@ public class AuthService : IAuthService
             defaultRole.Id);
 
         await _userRoleRepository.AddAsync(userRole);
+        
+        await _auditLogService.LogAsync(
+            user.Id,
+            "User Registered",
+            "User",
+            user.Id,
+            null,
+            $"Email: {user.Email}");
 
         return new RegisterResponse
         {
@@ -86,6 +97,14 @@ public class AuthService : IAuthService
 
         if (user is null || !user.IsActive)
         {
+            await _auditLogService.LogAsync(
+                user?.Id,
+                "Failed Login Attempt",
+                "User",
+                user?.Id,
+                null,
+                $"Email: {email}");
+
             throw new UnauthorizedAccessException(
                 "Invalid email or password.");
         }
@@ -95,8 +114,16 @@ public class AuthService : IAuthService
                 request.Password,
                 user.PasswordHash);
 
-        if (!passwordValid)
+        if (user is null || !user.IsActive)
         {
+            await _auditLogService.LogAsync(
+                user?.Id,
+                "Failed Login Attempt",
+                "User",
+                user?.Id,
+                null,
+                $"Email: {email}");
+
             throw new UnauthorizedAccessException(
                 "Invalid email or password.");
         }
@@ -124,7 +151,13 @@ public class AuthService : IAuthService
 
         await _refreshTokenRepository
             .AddAsync(refreshTokenEntity);
-
+        await _auditLogService.LogAsync(
+            user.Id,
+            "User Logged In",
+            "User",
+            user.Id,
+            null,
+            $"Email: {user.Email}");
         return new LoginResponse
         {
             AccessToken = accessToken,
@@ -183,6 +216,14 @@ public class AuthService : IAuthService
 
         await _refreshTokenRepository
             .AddAsync(newRefreshTokenEntity);
+        
+        await _auditLogService.LogAsync(
+            user.Id,
+            "Refresh Token Used",
+            "RefreshToken",
+            storedToken.Id,
+            null,
+            "Refresh token rotated successfully.");
 
         return new LoginResponse
         {
@@ -208,6 +249,14 @@ public class AuthService : IAuthService
         if (!storedToken.IsRevoked)
         {
             storedToken.Revoke();
+            
+            await _auditLogService.LogAsync(
+                storedToken.UserId,
+                "Refresh Token Revoked",
+                "RefreshToken",
+                storedToken.Id,
+                null,
+                "Refresh token revoked.");
 
             await _refreshTokenRepository
                 .UpdateAsync(storedToken);
