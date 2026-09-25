@@ -71,6 +71,32 @@ public class TeamController : ControllerBase
         });
     }
     
+    [HttpPatch("{teamId:guid}/lead/{userId:guid}")]
+    public async Task<IActionResult> AssignTeamLead(
+        Guid teamId,
+        Guid userId)
+    {
+        await _teamService.AssignTeamLeadAsync(
+            teamId,
+            userId);
+
+        return Ok(new
+        {
+            message = "Team lead assigned successfully."
+        });
+    }
+
+    [HttpDelete("{teamId:guid}/lead")]
+    public async Task<IActionResult> RemoveTeamLead(Guid teamId)
+    {
+        await _teamService.RemoveTeamLeadAsync(teamId);
+
+        return Ok(new
+        {
+            message = "Team lead removed successfully."
+        });
+    }
+    
     [HttpGet("{teamId:guid}/members")]
     public async Task<IActionResult> GetMembers(Guid teamId)
     {

@@ -132,6 +132,52 @@ public class TeamService : ITeamService
 
         await _teamMemberRepository.RemoveAsync(teamId, userId);
     }
+    
+    public async Task AssignTeamLeadAsync(
+        Guid teamId,
+        Guid userId)
+    {
+        var team = await _teamRepository.GetByIdAsync(teamId);
+
+        if (team is null)
+        {
+            throw new KeyNotFoundException(
+                "Team not found.");
+        }
+
+        var user = await _userRepository.GetByIdAsync(userId);
+
+        if (user is null)
+        {
+            throw new KeyNotFoundException(
+                "User not found.");
+        }
+
+        if (!user.IsActive)
+        {
+            throw new InvalidOperationException(
+                "An inactive user cannot be assigned as team lead.");
+        }
+
+        team.AssignTeamLead(userId);
+
+        await _teamRepository.UpdateAsync(team);
+    }
+
+    public async Task RemoveTeamLeadAsync(Guid teamId)
+    {
+        var team = await _teamRepository.GetByIdAsync(teamId);
+
+        if (team is null)
+        {
+            throw new KeyNotFoundException(
+                "Team not found.");
+        }
+
+        team.RemoveTeamLead();
+
+        await _teamRepository.UpdateAsync(team);
+    }
     private static TeamResponse MapToResponse(Team team)
     {
         return new TeamResponse
@@ -139,8 +185,10 @@ public class TeamService : ITeamService
             Id = team.Id,
             Name = team.Name,
             Description = team.Description,
+            TeamLeadId = team.TeamLeadId,
             CreatedAt = team.CreatedAt,
-            UpdatedAt = team.UpdatedAt
+            UpdatedAt = team.UpdatedAt,
+             
         };
         
         
