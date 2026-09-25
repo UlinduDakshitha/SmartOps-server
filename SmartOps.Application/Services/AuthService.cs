@@ -114,13 +114,13 @@ public class AuthService : IAuthService
                 request.Password,
                 user.PasswordHash);
 
-        if (user is null || !user.IsActive)
+        if (!passwordValid)
         {
             await _auditLogService.LogAsync(
-                user?.Id,
+                user.Id,
                 "Failed Login Attempt",
                 "User",
-                user?.Id,
+                user.Id,
                 null,
                 $"Email: {email}");
 
