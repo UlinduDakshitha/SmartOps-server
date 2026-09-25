@@ -7,13 +7,16 @@ public class ExceptionHandlingMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionHandlingMiddleware> _logger;
+    private readonly IWebHostEnvironment _environment;
 
     public ExceptionHandlingMiddleware(
         RequestDelegate next,
-        ILogger<ExceptionHandlingMiddleware> logger)
+        ILogger<ExceptionHandlingMiddleware> logger,
+        IWebHostEnvironment environment)
     {
         _next = next;
         _logger = logger;
+        _environment = environment;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -26,20 +29,23 @@ public class ExceptionHandlingMiddleware
         {
             _logger.LogError(
                 ex,
-                "An unhandled exception occurred.");
+                "An unhandled exception occurred. Request: {Method} {Path}",
+                context.Request.Method,
+                context.Request.Path);
 
-            await HandleExceptionAsync(
-                context,
-                ex);
+            await HandleExceptionAsync(context, ex);
         }
     }
 
-    private static async Task HandleExceptionAsync(
+    private async Task HandleExceptionAsync(
         HttpContext context,
         Exception exception)
     {
         var statusCode = exception switch
         {
+            KeyNotFoundException =>
+                (int)HttpStatusCode.NotFound,
+
             UnauthorizedAccessException =>
                 (int)HttpStatusCode.Unauthorized,
 
@@ -47,16 +53,38 @@ public class ExceptionHandlingMiddleware
                 (int)HttpStatusCode.BadRequest,
 
             InvalidOperationException =>
-                (int)HttpStatusCode.BadRequest,
+                (int)HttpStatusCode.Conflict,
 
             _ =>
                 (int)HttpStatusCode.InternalServerError
         };
 
+        var message = exception switch
+        {
+            KeyNotFoundException =>
+                exception.Message,
+
+            UnauthorizedAccessException =>
+                exception.Message,
+
+            ArgumentException =>
+                exception.Message,
+
+            InvalidOperationException =>
+                exception.Message,
+
+            _ when _environment.IsDevelopment() =>
+                exception.Message,
+
+            _ =>
+                "An unexpected error occurred."
+        };
+
         var response = new
         {
             statusCode,
-            message = exception.Message
+            message,
+            timestamp = DateTime.UtcNow
         };
 
         context.Response.StatusCode = statusCode;
