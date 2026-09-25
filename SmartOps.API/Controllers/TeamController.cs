@@ -70,4 +70,12 @@ public class TeamController : ControllerBase
             message = "User removed from team successfully."
         });
     }
+    
+    [HttpGet("{teamId:guid}/members")]
+    public async Task<IActionResult> GetMembers(Guid teamId)
+    {
+        var members = await _teamService.GetMembersAsync(teamId);
+
+        return Ok(members);
+    }
 }

@@ -1,4 +1,5 @@
 ﻿using SmartOps.Application.DTOs.Teams;
+using SmartOps.Application.DTOs.Users;
 using SmartOps.Application.Interfaces.Repositories;
 using SmartOps.Application.Interfaces.Services;
 using SmartOps.Domain.Entities;
@@ -141,5 +142,30 @@ public class TeamService : ITeamService
             CreatedAt = team.CreatedAt,
             UpdatedAt = team.UpdatedAt
         };
+        
+        
+    }
+    public async Task<List<UserResponse>> GetMembersAsync(Guid teamId)
+    {
+        var team = await _teamRepository.GetByIdAsync(teamId);
+
+        if (team is null)
+        {
+            throw new KeyNotFoundException(
+                "Team not found.");
+        }
+
+        var users = await _teamMemberRepository.GetMembersAsync(teamId);
+
+        return users
+            .Select(user => new UserResponse
+            {
+                Id = user.Id,
+                FullName = user.FullName,
+                Email = user.Email,
+                IsActive = user.IsActive,
+                CreatedAt = user.CreatedAt
+            })
+            .ToList();
     }
 }
