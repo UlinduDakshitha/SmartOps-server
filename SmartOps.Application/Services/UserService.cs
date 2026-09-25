@@ -91,9 +91,23 @@ public class UserService : IUserService
                 "User not found.");
         }
 
+        var email = request.Email
+            .Trim()
+            .ToLowerInvariant();
+
+        var existingUser = await _userRepository
+            .GetByEmailAsync(email);
+
+        if (existingUser is not null &&
+            existingUser.Id != user.Id)
+        {
+            throw new InvalidOperationException(
+                "A user with this email already exists.");
+        }
+
         user.Update(
             request.FullName.Trim(),
-            request.Email.Trim().ToLowerInvariant());
+            email);
 
         await _userRepository.UpdateAsync(user);
 

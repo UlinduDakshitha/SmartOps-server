@@ -112,42 +112,40 @@ public class DashboardService : IDashboardService
     public async Task<List<TeamWorkloadResponse>> GetTeamWorkloadAsync()
     {
         var incidents = await _incidentRepository.GetAllAsync();
+        var teams = await _teamRepository.GetAllAsync();
 
-        var teamGroups = incidents
+        var teamLookup = teams.ToDictionary(x => x.Id);
+
+        return incidents
             .Where(x => x.AssignedTeamId.HasValue)
             .GroupBy(x => x.AssignedTeamId!.Value)
-            .ToList();
-
-        var result = new List<TeamWorkloadResponse>();
-
-        foreach (var group in teamGroups)
-        {
-            var team = await _teamRepository.GetByIdAsync(group.Key);
-
-            result.Add(new TeamWorkloadResponse
+            .Select(group =>
             {
-                TeamId = group.Key,
-                TeamName = team?.Name ?? "Unknown Team",
+                teamLookup.TryGetValue(group.Key, out var team);
 
-                TotalIncidents = group.Count(),
+                return new TeamWorkloadResponse
+                {
+                    TeamId = group.Key,
+                    TeamName = team?.Name ?? "Unknown Team",
 
-                NewIncidents = group.Count(x =>
-                    x.Status == IncidentStatus.New),
+                    TotalIncidents = group.Count(),
 
-                AssignedIncidents = group.Count(x =>
-                    x.Status == IncidentStatus.Assigned),
+                    NewIncidents = group.Count(x =>
+                        x.Status == IncidentStatus.New),
 
-                InProgressIncidents = group.Count(x =>
-                    x.Status == IncidentStatus.InProgress),
+                    AssignedIncidents = group.Count(x =>
+                        x.Status == IncidentStatus.Assigned),
 
-                ResolvedIncidents = group.Count(x =>
-                    x.Status == IncidentStatus.Resolved),
+                    InProgressIncidents = group.Count(x =>
+                        x.Status == IncidentStatus.InProgress),
 
-                ClosedIncidents = group.Count(x =>
-                    x.Status == IncidentStatus.Closed)
-            });
-        }
+                    ResolvedIncidents = group.Count(x =>
+                        x.Status == IncidentStatus.Resolved),
 
-        return result;
+                    ClosedIncidents = group.Count(x =>
+                        x.Status == IncidentStatus.Closed)
+                };
+            })
+            .ToList();
     }
 }
