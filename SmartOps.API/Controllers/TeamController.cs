@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SmartOps.Application.DTOs.Teams;
 using SmartOps.Application.Interfaces.Services;
 
@@ -8,6 +9,7 @@ namespace SmartOps.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "TeamLeadOrAdmin")]
+[EnableRateLimiting("fixed")]
 public class TeamController : ControllerBase
 {
     private readonly ITeamService _teamService;

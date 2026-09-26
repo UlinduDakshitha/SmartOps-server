@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SmartOps.Application.Interfaces.Services;
 
 namespace SmartOps.API.Controllers;
@@ -7,6 +8,7 @@ namespace SmartOps.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "ManagerOrAdmin")]
+[EnableRateLimiting("fixed")]
 public class DashboardController : ControllerBase
 {
     private readonly IDashboardService _dashboardService;

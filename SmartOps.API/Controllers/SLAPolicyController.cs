@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SmartOps.Application.DTOs.SLA;
 using SmartOps.Application.Interfaces.Services;
 
@@ -8,6 +9,7 @@ namespace SmartOps.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "AdminOnly")]
+[EnableRateLimiting("fixed")]
 public class SLAPolicyController : ControllerBase
 {
     private readonly ISLAPolicyService _slaPolicyService;

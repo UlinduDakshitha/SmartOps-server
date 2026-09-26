@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SmartOps.Application.Interfaces.Services;
 
 namespace SmartOps.API.Controllers;
@@ -8,6 +9,7 @@ namespace SmartOps.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
+[EnableRateLimiting("fixed")]
 public class NotificationController : ControllerBase
 {
     private readonly INotificationService _notificationService;

@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SmartOps.Application.DTOs.Incidents;
 using SmartOps.Application.Interfaces.Services;
 
@@ -9,6 +10,7 @@ namespace SmartOps.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = "IncidentHandler")]
+[EnableRateLimiting("fixed")]
 public class IncidentController : ControllerBase
 {
     private readonly IIncidentService _incidentService;

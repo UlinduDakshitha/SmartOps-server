@@ -1,13 +1,14 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SmartOps.Application.DTOs.Auth;
 using SmartOps.Application.Interfaces.Services;
-
 
 namespace SmartOps.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[EnableRateLimiting("fixed")]
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
