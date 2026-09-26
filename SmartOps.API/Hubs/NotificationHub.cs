@@ -25,6 +25,16 @@ public class NotificationHub : Hub
 
     public async Task LeaveUserGroup(Guid userId)
     {
+        var currentUserId = Context.User?.FindFirst(
+            System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (!Guid.TryParse(currentUserId, out var parsedUserId))
+            throw new HubException("User identity is invalid.");
+
+        if (parsedUserId != userId)
+            throw new HubException(
+                "You can only leave your own notification group.");
+
         await Groups.RemoveFromGroupAsync(
             Context.ConnectionId,
             GetUserGroupName(userId));

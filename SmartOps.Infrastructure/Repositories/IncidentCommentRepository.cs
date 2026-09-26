@@ -23,8 +23,9 @@ public class IncidentCommentRepository : IIncidentCommentRepository
     public async Task<List<IncidentComment>> GetByIncidentIdAsync(
         Guid incidentId)
     {
-        return await _context.IncidentComments
-            .Where(x => x.IncidentId == incidentId)
-            .ToListAsync();
+         return await _context.IncidentComments
+             .Where(x => x.IncidentId == incidentId)
+             .OrderBy(x => x.CreatedAt)
+             .ToListAsync();
     }
 }
