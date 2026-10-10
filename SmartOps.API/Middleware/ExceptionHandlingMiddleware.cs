@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿
+using System.Net;
 using System.Text.Json;
 
 namespace SmartOps.API.Middleware;
@@ -27,9 +28,21 @@ public class ExceptionHandlingMiddleware
         }
         catch (Exception ex)
         {
+            if (context.Response.HasStarted)
+            {
+                _logger.LogError(
+                    ex,
+                    "An exception occurred after the response started. " +
+                    "Request: {Method} {Path}",
+                    context.Request.Method,
+                    context.Request.Path);
+
+                throw;
+            }
+
             _logger.LogError(
                 ex,
-                "An unhandled exception occurred. Request: {Method} {Path}",
+                "Unhandled exception. Request: {Method} {Path}",
                 context.Request.Method,
                 context.Request.Path);
 
@@ -41,56 +54,44 @@ public class ExceptionHandlingMiddleware
         HttpContext context,
         Exception exception)
     {
-        var statusCode = exception switch
+        var (statusCode, message) = exception switch
         {
             KeyNotFoundException =>
-                (int)HttpStatusCode.NotFound,
+                ((int)HttpStatusCode.NotFound,
+                 exception.Message),
 
             UnauthorizedAccessException =>
-                (int)HttpStatusCode.Unauthorized,
+                ((int)HttpStatusCode.Forbidden,
+                 exception.Message),
 
             ArgumentException =>
-                (int)HttpStatusCode.BadRequest,
+                ((int)HttpStatusCode.BadRequest,
+                 exception.Message),
 
             InvalidOperationException =>
-                (int)HttpStatusCode.Conflict,
+                ((int)HttpStatusCode.Conflict,
+                 exception.Message),
 
             _ =>
-                (int)HttpStatusCode.InternalServerError
+                ((int)HttpStatusCode.InternalServerError,
+                 "An unexpected error occurred.")
         };
 
-        var message = exception switch
+        if (statusCode >= 500 && _environment.IsDevelopment())
         {
-            KeyNotFoundException =>
-                exception.Message,
+            message = exception.Message;
+        }
 
-            UnauthorizedAccessException =>
-                exception.Message,
-
-            ArgumentException =>
-                exception.Message,
-
-            InvalidOperationException =>
-                exception.Message,
-
-            _ when _environment.IsDevelopment() =>
-                exception.Message,
-
-            _ =>
-                "An unexpected error occurred."
-        };
+        context.Response.Clear();
+        context.Response.StatusCode = statusCode;
+        context.Response.ContentType = "application/json";
 
         var response = new
         {
             statusCode,
             message,
-            timestamp = DateTime.UtcNow
+            timestamp = DateTimeOffset.UtcNow
         };
-
-        context.Response.StatusCode = statusCode;
-
-        context.Response.ContentType =
-            "application/json";
 
         await context.Response.WriteAsync(
             JsonSerializer.Serialize(response));

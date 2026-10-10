@@ -52,13 +52,30 @@ public class UserService : IUserService
             TotalCount = users.Count
         };
     }
-
+    
     public async Task<UserResponse> CreateAsync(
         CreateUserRequest request)
     {
-        var email = request.Email
-            .Trim()
-            .ToLowerInvariant();
+        var fullName = request.FullName.Trim();
+        var email = request.Email.Trim().ToLowerInvariant();
+
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            throw new ArgumentException(
+                "Full name is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            throw new ArgumentException(
+                "Email is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Password))
+        {
+            throw new ArgumentException(
+                "Password is required.");
+        }
 
         if (await _userRepository.ExistsByEmailAsync(email))
         {
@@ -66,18 +83,44 @@ public class UserService : IUserService
                 "A user with this email already exists.");
         }
 
+        var role = await _roleRepository
+            .GetByIdAsync(request.RoleId);
+
+        if (role is null)
+        {
+            throw new KeyNotFoundException(
+                "Selected role was not found.");
+        }
+
+        // Do not allow this endpoint to create another Administrator.
+        if (string.Equals(
+                role.Name,
+                "Administrator",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Administrator accounts cannot be created through this endpoint.");
+        }
+
         var passwordHash = _passwordHasher
             .HashPassword(request.Password);
 
         var user = new User(
-            request.FullName.Trim(),
+            fullName,
             email,
             passwordHash);
 
         await _userRepository.AddAsync(user);
 
+        var userRole = new UserRole(
+            user.Id,
+            role.Id);
+
+        await _userRoleRepository.AddAsync(userRole);
+
         return MapToResponse(user);
     }
+    
 
     public async Task<UserResponse> UpdateAsync(
         Guid id,
