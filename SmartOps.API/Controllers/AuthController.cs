@@ -9,7 +9,6 @@ using SmartOps.Application.Interfaces.Services;
 
 namespace SmartOps.API.Controllers;
 
-
 [ApiController]
 [Route("api/[controller]")]
 [EnableRateLimiting("fixed")]
