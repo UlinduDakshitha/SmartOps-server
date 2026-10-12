@@ -1,10 +1,14 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿
+using System.Linq;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using SmartOps.Application.DTOs.Auth;
 using SmartOps.Application.Interfaces.Services;
 
 namespace SmartOps.API.Controllers;
+
 
 [ApiController]
 [Route("api/[controller]")]
@@ -21,7 +25,7 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     [AllowAnonymous]
     public async Task<IActionResult> Register(
-        RegisterRequest request)
+        [FromBody] RegisterRequest request)
     {
         var result = await _authService.RegisterAsync(request);
 
@@ -31,25 +35,25 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     [AllowAnonymous]
     public async Task<IActionResult> Login(
-        LoginRequest request)
+        [FromBody] LoginRequest request)
     {
         var result = await _authService.LoginAsync(request);
 
         return Ok(result);
     }
+
     [HttpGet("me")]
     [Authorize]
     public IActionResult GetCurrentUser()
     {
         var userId = User.FindFirst(
-            System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            ClaimTypes.NameIdentifier)?.Value;
 
         var email = User.FindFirst(
-            System.Security.Claims.ClaimTypes.Email)?.Value;
+            ClaimTypes.Email)?.Value;
 
-        var roles = User.FindAll(
-                System.Security.Claims.ClaimTypes.Role)
-            .Select(x => x.Value)
+        var roles = User.FindAll(ClaimTypes.Role)
+            .Select(claim => claim.Value)
             .ToList();
 
         return Ok(new
@@ -59,6 +63,7 @@ public class AuthController : ControllerBase
             Roles = roles
         });
     }
+
     [HttpPost("refresh")]
     [AllowAnonymous]
     public async Task<IActionResult> Refresh(
