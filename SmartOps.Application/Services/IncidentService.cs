@@ -1,4 +1,5 @@
-﻿using SmartOps.Application.DTOs.Incidents;
+﻿using System.Text.Json;
+using SmartOps.Application.DTOs.Incidents;
 using SmartOps.Application.Interfaces.Repositories;
 using SmartOps.Application.Interfaces.Services;
 using SmartOps.Domain.Entities;
@@ -19,6 +20,7 @@ public class IncidentService : IIncidentService
     private readonly INotificationService _notificationService;
     private readonly IAuditLogService _auditLogService;
     private readonly ITeamMemberRepository _teamMemberRepository;
+   
 
     public IncidentService(
         IIncidentRepository incidentRepository,
@@ -151,7 +153,30 @@ public class IncidentService : IIncidentService
             responseDueAt,
             resolutionDueAt);
 
-        await _incidentRepository.AddAsync(incident);
+        var automationPayload = JsonSerializer.Serialize(new
+        {
+            eventType = "Incident.Created",
+            incidentId = incident.Id,
+            incidentNumber = incident.IncidentNumber,
+            title = incident.Title,
+            description = incident.Description,
+            priority = incident.Priority.ToString(),
+            severity = incident.Severity.ToString(),
+            status = incident.Status.ToString(),
+            message = $"New incident {incident.IncidentNumber} has been created.",
+            createdByUserId = createdByUserId,
+            createdAt = incident.CreatedAt,
+            responseDueAt = incident.ResponseDueAt,
+            resolutionDueAt = incident.ResolutionDueAt
+        });
+
+        var outboxEvent = new AutomationOutbox(
+            "Incident.Created",
+            automationPayload);
+
+        await _incidentRepository.AddWithOutboxAsync(
+            incident,
+            outboxEvent);
 
         var history = new IncidentHistory(
             incident.Id,

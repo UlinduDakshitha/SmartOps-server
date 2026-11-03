@@ -136,7 +136,20 @@ public class AutomationOutboxWorker : BackgroundService
             request.Headers.Add(
                 "X-SmartOps-Event-Type",
                 pendingEvent.EventType);
+            
+            var webhookSecret =
+                configuration["N8n:WebhookSecret"];
 
+            if (string.IsNullOrWhiteSpace(webhookSecret))
+            {
+                throw new InvalidOperationException(
+                    "n8n webhook secret is not configured.");
+            }
+
+            request.Headers.Add(
+                "X-SmartOps-Secret",
+                webhookSecret);
+            
             using var response = await client.SendAsync(
                 request,
                 cancellationToken);

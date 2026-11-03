@@ -131,7 +131,15 @@ public class IncidentRepository : IIncidentRepository
         await _context.Incidents.AddAsync(incident);
         await _context.SaveChangesAsync();
     }
+    public async Task AddWithOutboxAsync(
+        Incident incident,
+        AutomationOutbox outbox)
+    {
+        await _context.Incidents.AddAsync(incident);
+        await _context.AutomationOutbox.AddAsync(outbox);
 
+        await _context.SaveChangesAsync();
+    }
     public async Task UpdateAsync(Incident incident)
     {
         _context.Incidents.Update(incident);
