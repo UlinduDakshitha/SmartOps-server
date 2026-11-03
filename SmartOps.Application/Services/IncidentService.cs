@@ -257,130 +257,157 @@ public class IncidentService : IIncidentService
         return MapToResponse(incident);
     }
 
-    public async Task AssignAsync(
-        Guid id,
-        AssignIncidentRequest request,
-        Guid assignedByUserId)
+    
+public async Task AssignAsync(
+    Guid id,
+    AssignIncidentRequest request,
+    Guid assignedByUserId)
+{
+    var incident = await _incidentRepository.GetByIdAsync(id);
+
+    if (incident is null)
+        throw new KeyNotFoundException("Incident not found.");
+
+    var assigningUser = await _userRepository
+        .GetByIdAsync(assignedByUserId);
+
+    if (assigningUser is null)
+        throw new KeyNotFoundException("Assigning user not found.");
+
+    if (!assigningUser.IsActive)
+        throw new InvalidOperationException(
+            "An inactive user cannot assign an incident.");
+
+    var team = await _teamRepository.GetByIdAsync(request.TeamId);
+
+    if (team is null)
+        throw new KeyNotFoundException("Team not found.");
+
+    User? assignedUser = null;
+
+    // Validate assigned user before making changes
+    if (request.UserId.HasValue)
     {
-        var incident = await _incidentRepository.GetByIdAsync(id);
+        assignedUser = await _userRepository
+            .GetByIdAsync(request.UserId.Value);
 
-        if (incident is null)
-            throw new KeyNotFoundException("Incident not found.");
+        if (assignedUser is null)
+            throw new KeyNotFoundException("Assigned user not found.");
 
-        var assigningUser = await _userRepository
-            .GetByIdAsync(assignedByUserId);
-
-        if (assigningUser is null)
-            throw new KeyNotFoundException(
-                "Assigning user not found.");
-
-        if (!assigningUser.IsActive)
+        if (!assignedUser.IsActive)
             throw new InvalidOperationException(
-                "An inactive user cannot assign an incident.");
+                "Cannot assign an incident to an inactive user.");
 
-        var team = await _teamRepository
-            .GetByIdAsync(request.TeamId);
-
-        if (team is null)
-            throw new KeyNotFoundException("Team not found.");
-
-        if (request.UserId.HasValue)
-        {
-            var assignedUser = await _userRepository
-                .GetByIdAsync(request.UserId.Value);
-
-            if (assignedUser is null)
-                throw new KeyNotFoundException(
-                    "Assigned user not found.");
-
-            if (!assignedUser.IsActive)
-                throw new InvalidOperationException(
-                    "Cannot assign an incident to an inactive user.");
-        }
-
-        var activeAssignment =
-            await _incidentAssignmentRepository
-                .GetActiveByIncidentIdAsync(id);
-
-        if (activeAssignment is not null)
-        {
-            activeAssignment.Unassign();
-
-            await _incidentAssignmentRepository
-                .UpdateAsync(activeAssignment);
-        }
-
-        var oldValue =
-            $"TeamId: {incident.AssignedTeamId}, " +
-            $"UserId: {incident.AssignedUserId}, " +
-            $"Status: {incident.Status}";
-
-        incident.Assign(
+        var isTeamMember = await _teamMemberRepository.ExistsAsync(
             request.TeamId,
-            request.UserId);
+            request.UserId.Value);
 
-        await _incidentRepository.UpdateAsync(incident);
-
-        var assignment = new IncidentAssignment(
-            id,
-            request.TeamId,
-            request.UserId,
-            assignedByUserId);
-
-        await _incidentAssignmentRepository.AddAsync(assignment);
-
-        var newValue =
-            $"TeamId: {incident.AssignedTeamId}, " +
-            $"UserId: {incident.AssignedUserId}, " +
-            $"Status: {incident.Status}";
-
-        var history = new IncidentHistory(
-            incident.Id,
-            assignedByUserId,
-            "Incident Assigned",
-            oldValue,
-            newValue);
-
-        await _incidentHistoryRepository.AddAsync(history);
-
-        await _auditLogService.LogAsync(
-            assignedByUserId,
-            "Incident Assigned",
-            "Incident",
-            incident.Id,
-            oldValue,
-            newValue);
-
-        if (request.UserId.HasValue)
-        {
-            await _notificationService.CreateAsync(
-                request.UserId.Value,
-                "Incident Assigned",
-                $"Incident {incident.IncidentNumber} has been assigned to you.",
-                "IncidentAssignment");
-        }
-        
-        if (request.UserId.HasValue)
-        {
-            var assignedUser = await _userRepository
-                .GetByIdAsync(request.UserId.Value);
-
-            if (assignedUser is null)
-                throw new KeyNotFoundException("Assigned user not found.");
-
-            if (!assignedUser.IsActive)
-                throw new InvalidOperationException(
-                    "Cannot assign an incident to an inactive user.");
-
-            if (!await _teamMemberRepository.ExistsAsync(
-                    request.TeamId,
-                    request.UserId.Value))
-            {
-                throw new InvalidOperationException(
-                    "The assigned user must be a member of the selected team.");
-            }
-        }
+        if (!isTeamMember)
+            throw new InvalidOperationException(
+                "The assigned user must be a member of the selected team.");
     }
+
+    var oldValue =
+        $"TeamId: {incident.AssignedTeamId}, " +
+        $"UserId: {incident.AssignedUserId}, " +
+        $"Status: {incident.Status}";
+
+    // Unassign previous active assignment
+    var activeAssignment =
+        await _incidentAssignmentRepository
+            .GetActiveByIncidentIdAsync(id);
+
+    if (activeAssignment is not null)
+    {
+        activeAssignment.Unassign();
+
+        await _incidentAssignmentRepository
+            .UpdateAsync(activeAssignment);
+    }
+
+    // Update incident assignment
+    incident.Assign(
+        request.TeamId,
+        request.UserId);
+
+    // Create automation event payload
+    var automationPayload = JsonSerializer.Serialize(new
+    {
+        eventType = "Incident.Assigned",
+        incidentId = incident.Id,
+        incidentNumber = incident.IncidentNumber,
+        title = incident.Title,
+        description = incident.Description,
+        priority = incident.Priority.ToString(),
+        severity = incident.Severity.ToString(),
+        status = incident.Status.ToString(),
+
+        assignedTeamId = request.TeamId,
+        assignedUserId = request.UserId,
+        assignedUserName = assignedUser?.FullName,
+        assignedUserEmail = assignedUser?.Email,
+
+        assignedByUserId = assignedByUserId,
+        assignedAt = DateTime.UtcNow,
+
+        message = assignedUser != null
+            ? $"Incident {incident.IncidentNumber} has been assigned to {assignedUser.FullName}."
+            : $"Incident {incident.IncidentNumber} has been assigned to a team."
+    });
+
+    var outboxEvent = new AutomationOutbox(
+        "Incident.Assigned",
+        automationPayload);
+
+    // Save incident and outbox event together
+    await _incidentRepository.UpdateWithOutboxAsync(
+        incident,
+        outboxEvent);
+
+    // Create assignment record
+    var assignment = new IncidentAssignment(
+        id,
+        request.TeamId,
+        request.UserId,
+        assignedByUserId);
+
+    await _incidentAssignmentRepository.AddAsync(assignment);
+
+    var newValue =
+        $"TeamId: {incident.AssignedTeamId}, " +
+        $"UserId: {incident.AssignedUserId}, " +
+        $"Status: {incident.Status}";
+
+    // Save history
+    var history = new IncidentHistory(
+        incident.Id,
+        assignedByUserId,
+        "Incident Assigned",
+        oldValue,
+        newValue);
+
+    await _incidentHistoryRepository.AddAsync(history);
+
+    // Audit log
+    await _auditLogService.LogAsync(
+        assignedByUserId,
+        "Incident Assigned",
+        "Incident",
+        incident.Id,
+        oldValue,
+        newValue);
+
+    // Internal notification
+    if (request.UserId.HasValue)
+    {
+        await _notificationService.CreateAsync(
+            request.UserId.Value,
+            "Incident Assigned",
+            $"Incident {incident.IncidentNumber} has been assigned to you.",
+            "IncidentAssignment");
+    }
+}
+
 
     public async Task StartProgressAsync(
         Guid id,
@@ -458,6 +485,7 @@ public class IncidentService : IIncidentService
             oldValue,
             newValue);
 
+        
         if (incident.AssignedUserId.HasValue)
         {
             await _notificationService.CreateAsync(

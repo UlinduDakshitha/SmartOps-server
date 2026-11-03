@@ -46,6 +46,25 @@ public class IncidentRepository : IIncidentRepository
             .ToListAsync();
     }
 
+    public async Task<List<Incident>> GetOpenIncidentsForSlaMonitoringAsync()
+    {
+        return await _context.Incidents
+            .AsNoTracking()
+            .Where(x =>
+                x.Status != IncidentStatus.Resolved &&
+                x.Status != IncidentStatus.Closed &&
+                x.Status != IncidentStatus.Cancelled &&
+                (
+                    (x.ResponseDueAt.HasValue &&
+                     !x.RespondedAt.HasValue)
+                    ||
+                    (x.ResolutionDueAt.HasValue &&
+                     !x.ResolvedAt.HasValue)
+                ))
+            .OrderBy(x => x.ResolutionDueAt)
+            .ToListAsync();
+    }
+
     public async Task<List<Incident>> GetPagedAsync(
         int pageNumber,
         int pageSize,
@@ -140,6 +159,17 @@ public class IncidentRepository : IIncidentRepository
 
         await _context.SaveChangesAsync();
     }
+    public async Task UpdateWithOutboxAsync(
+        Incident incident,
+        AutomationOutbox outbox)
+    {
+        _context.Incidents.Update(incident);
+
+        await _context.AutomationOutbox.AddAsync(outbox);
+
+        await _context.SaveChangesAsync();
+    }
+    
     public async Task UpdateAsync(Incident incident)
     {
         _context.Incidents.Update(incident);
