@@ -20,15 +20,21 @@ public class AutomationOutbox
 
     public string? LastError { get; private set; }
 
+    public string? DeduplicationKey { get; private set; }
+    
     private AutomationOutbox()
     {
     }
 
-    public AutomationOutbox(string eventType, string payload)
+    public AutomationOutbox(
+        string eventType,
+        string payload,
+        string? deduplicationKey = null)
     {
         Id = Guid.NewGuid();
         EventType = eventType;
         Payload = payload;
+        DeduplicationKey = deduplicationKey;
         Status = "Pending";
         RetryCount = 0;
         CreatedAt = DateTime.UtcNow;
