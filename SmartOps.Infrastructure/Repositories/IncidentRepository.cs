@@ -51,15 +51,20 @@ public class IncidentRepository : IIncidentRepository
         return await _context.Incidents
             .AsNoTracking()
             .Where(x =>
-                x.Status != IncidentStatus.Resolved &&
-                x.Status != IncidentStatus.Closed &&
-                x.Status != IncidentStatus.Cancelled &&
                 (
-                    (x.ResponseDueAt.HasValue &&
-                     !x.RespondedAt.HasValue)
-                    ||
-                    (x.ResolutionDueAt.HasValue &&
-                     !x.ResolvedAt.HasValue)
+                    x.ResponseDueAt.HasValue &&
+                    (
+                        !x.RespondedAt.HasValue ||
+                        x.RespondedAt > x.ResponseDueAt
+                    )
+                )
+                ||
+                (
+                    x.ResolutionDueAt.HasValue &&
+                    (
+                        !x.ResolvedAt.HasValue ||
+                        x.ResolvedAt > x.ResolutionDueAt
+                    )
                 ))
             .OrderBy(x => x.ResolutionDueAt)
             .ToListAsync();

@@ -446,55 +446,95 @@ public async Task AssignAsync(
             newValue);
     }
 
-    public async Task ResolveAsync(
-        Guid id,
-        ResolveIncidentRequest request,
-        Guid resolvedByUserId)
+   
+public async Task ResolveAsync(
+    Guid id,
+    ResolveIncidentRequest request,
+    Guid resolvedByUserId)
+{
+    await ValidateActiveUserAsync(resolvedByUserId);
+
+    var incident = await _incidentRepository.GetByIdAsync(id);
+
+    if (incident is null)
+        throw new KeyNotFoundException("Incident not found.");
+
+    var oldValue = incident.Status.ToString();
+
+    incident.Resolve(
+        request.ResolutionNotes.Trim(),
+        request.RootCause.Trim());
+
+    User? assignedUser = null;
+
+    if (incident.AssignedUserId.HasValue)
     {
-        await ValidateActiveUserAsync(resolvedByUserId);
-
-        var incident = await _incidentRepository.GetByIdAsync(id);
-
-        if (incident is null)
-            throw new KeyNotFoundException("Incident not found.");
-
-        var oldValue = incident.Status.ToString();
-
-        incident.Resolve(
-            request.ResolutionNotes.Trim(),
-            request.RootCause.Trim());
-
-        await _incidentRepository.UpdateAsync(incident);
-
-        var newValue = incident.Status.ToString();
-
-        var history = new IncidentHistory(
-            incident.Id,
-            resolvedByUserId,
-            "Incident Resolved",
-            oldValue,
-            newValue);
-
-        await _incidentHistoryRepository.AddAsync(history);
-
-        await _auditLogService.LogAsync(
-            resolvedByUserId,
-            "Incident Resolved",
-            "Incident",
-            incident.Id,
-            oldValue,
-            newValue);
-
-        
-        if (incident.AssignedUserId.HasValue)
-        {
-            await _notificationService.CreateAsync(
-                incident.AssignedUserId.Value,
-                "Incident Resolved",
-                $"Incident {incident.IncidentNumber} has been resolved.",
-                "IncidentResolution");
-        }
+        assignedUser = await _userRepository
+            .GetByIdAsync(incident.AssignedUserId.Value);
     }
+
+    var automationPayload = JsonSerializer.Serialize(new
+    {
+        eventType = "Incident.Resolved",
+        incidentId = incident.Id,
+        incidentNumber = incident.IncidentNumber,
+        title = incident.Title,
+        description = incident.Description,
+        priority = incident.Priority.ToString(),
+        severity = incident.Severity.ToString(),
+        status = incident.Status.ToString(),
+
+        assignedUserId = incident.AssignedUserId,
+        recipientEmail = assignedUser?.IsActive == true
+            ? assignedUser.Email
+            : null,
+        recipientName = assignedUser?.FullName,
+
+        resolvedByUserId = resolvedByUserId,
+        resolvedAt = incident.ResolvedAt,
+        resolutionNotes = incident.ResolutionNotes,
+        rootCause = incident.RootCause,
+
+        message = $"Incident {incident.IncidentNumber} has been resolved."
+    });
+
+    var outboxEvent = new AutomationOutbox(
+        "Incident.Resolved",
+        automationPayload);
+
+    await _incidentRepository.UpdateWithOutboxAsync(
+        incident,
+        outboxEvent);
+
+    var newValue = incident.Status.ToString();
+
+    var history = new IncidentHistory(
+        incident.Id,
+        resolvedByUserId,
+        "Incident Resolved",
+        oldValue,
+        newValue);
+
+    await _incidentHistoryRepository.AddAsync(history);
+
+    await _auditLogService.LogAsync(
+        resolvedByUserId,
+        "Incident Resolved",
+        "Incident",
+        incident.Id,
+        oldValue,
+        newValue);
+
+    if (incident.AssignedUserId.HasValue)
+    {
+        await _notificationService.CreateAsync(
+            incident.AssignedUserId.Value,
+            "Incident Resolved",
+            $"Incident {incident.IncidentNumber} has been resolved.",
+            "IncidentResolution");
+    }
+}
+
 
     public async Task CloseAsync(
         Guid id,
