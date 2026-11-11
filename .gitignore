@@ -1,0 +1,11 @@
+﻿**/bin/
+**/obj/
+**/logs/
+.idea/
+.vs/
+*.user
+*.suo
+*.http
+appsettings.Development.json
+appsettings.Production.json
+appsettings.json
