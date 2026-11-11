@@ -1,0 +1,48 @@
+﻿services:
+  postgres:
+    image: postgres:17
+    container_name: smartops-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smartops
+      POSTGRES_USER: smartops_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartops_user -d smartops"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  api:
+    image: smartops-api:latest
+    container_name: smartops-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=smartops;Username=smartops_user;Password=${DB_PASSWORD}"
+
+      Jwt__SecretKey: ${JWT_SECRET}
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      Jwt__AccessTokenExpirationMinutes: ${JWT_ACCESS_TOKEN_EXPIRATION_MINUTES}
+
+      InitialAdmin__Email: ${INITIAL_ADMIN_EMAIL}
+      InitialAdmin__FullName: ${INITIAL_ADMIN_FULL_NAME}
+      InitialAdmin__Password: ${INITIAL_ADMIN_PASSWORD}
+
+      N8n__WebhookUrl: ${N8N_WEBHOOK_URL}
+      N8n__WebhookSecret: ${N8N_WEBHOOK_SECRET}
+
+    ports:
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  postgres_data:

@@ -41,14 +41,24 @@ builder.Services.AddOpenApi();
 builder.Services.AddSignalR();
 
 // CORS for Angular
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? Array.Empty<string>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AngularClient", policy =>
     {
         policy
             .WithOrigins(
-                "http://localhost:4200",
-                "https://localhost:4200")
+                new[]
+                {
+                    "http://localhost:4200",
+                    "https://localhost:4200"
+                }
+                .Concat(allowedOrigins)
+                .Distinct()
+                .ToArray())
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();

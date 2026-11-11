@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
@@ -9,11 +9,9 @@
 
     <ItemGroup>
         <PackageReference Include="FluentValidation" Version="12.1.1" />
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\SmartOps.Domain\SmartOps.Domain.csproj" />
       <ProjectReference Include="..\SmartOps.Domain\SmartOps.Domain.csproj" />
     </ItemGroup>
 

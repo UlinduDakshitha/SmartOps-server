@@ -4,7 +4,6 @@ using SmartOps.Application.Interfaces.Repositories;
 using SmartOps.Application.Interfaces.Services;
 using SmartOps.Domain.Entities;
 using SmartOps.Domain.Enums;
-using SmartOps.Application.Interfaces.Repositories;
 
 namespace SmartOps.Application.Services;
 
