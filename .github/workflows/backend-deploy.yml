@@ -1,0 +1,81 @@
+
+name: SmartOps Backend CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smartops-backend-production
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore SmartOps.sln
+
+      - name: Build solution
+        run: dotnet build SmartOps.sln --configuration Release --no-restore
+
+      - name: Build Docker image
+        run: docker build -t smartops-api:latest .
+
+      - name: Save Docker image
+        run: docker save smartops-api:latest -o smartops-api.tar
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/smartops_key
+          chmod 600 ~/.ssh/smartops_key
+          ssh-keyscan -H "${{ secrets.ORACLE_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload Docker image
+        run: |
+          scp -i ~/.ssh/smartops_key \
+            smartops-api.tar \
+            ${{ secrets.ORACLE_USER }}@${{ secrets.ORACLE_HOST }}:/tmp/smartops-api.tar
+
+      - name: Deploy API on Oracle VM
+        run: |
+          ssh -i ~/.ssh/smartops_key \
+            ${{ secrets.ORACLE_USER }}@${{ secrets.ORACLE_HOST }} '
+              set -e
+              cd /home/ubuntu/smartops
+
+              sudo docker load -i /tmp/smartops-api.tar
+              sudo docker compose up -d --no-deps api
+
+              rm -f /tmp/smartops-api.tar
+
+              for i in $(seq 1 30); do
+                if curl -fsS http://localhost:8080/health; then
+                  echo "SmartOps API deployment successful"
+                  exit 0
+                fi
+                sleep 5
+              done
+
+              echo "API health check failed"
+              sudo docker compose logs --tail=100 api
+              exit 1
+            '
